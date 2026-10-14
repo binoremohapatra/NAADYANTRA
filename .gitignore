@@ -132,3 +132,13 @@ tcl/
 tmp/
 vcruntime*
 winrar*
+
+
+dataset/
+__pycache__/
+firmware/build/
+firmware/managed_components/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/dependencies.lock
+EOF
