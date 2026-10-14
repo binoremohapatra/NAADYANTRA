@@ -76,10 +76,16 @@ The binding input format for the model is **4,000 raw time-domain audio samples*
 | **Input Shape to Model** | `[1, 4000]` (single channel) | `EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME = 1` | 1-axis contact piezo |
 
 > [!WARNING]
-> **Train-Serve Audio Scaling Mismatch Risk:**  
+> **Train-Serve Audio Scaling Mismatch Hazard:**  
 > The firmware delivers unscaled, centered `float32` ADC counts ($\pm 2048$ nominal range) directly to `numpy::signal_from_buffer()`.  
-> If the teammate's model is trained on standard floating-point audio WAV files (normalized to $[-1.0, +1.0]$) or 16-bit PCM ($\pm 32768$) without applying the identical scaling transform in Edge Impulse Studio, the model input magnitudes will be mismatched by orders of magnitude, causing inference failure.  
-> Training data collected via `leak_detector.ino` in `RUN_MODE_COLLECT` (which streams raw DC-blocked integer counts at 921600 baud) avoids this skew.
+> **Edge Impulse DSP blocks (MFCC, Spectrogram, MFE) must NOT be assumed to correct arbitrary training-versus-inference scaling differences.**  
+> If the teammate's model was trained on standard floating-point audio WAV files (normalized to $[-1.0, +1.0]$) or 16-bit PCM ($\pm 32768$) without applying the identical scaling transform in Edge Impulse Studio, the model input magnitudes will be mismatched by orders of magnitude (up to 2000×), causing neural network saturation and inference failure.  
+> **Mandatory Teammate Disclosure:** The teammate must explicitly disclose:
+> 1. Exact training input representation and numeric range (must verify compatibility with firmware's $\approx \pm 2048$ centered counts).
+> 2. Whether DC-block filtering ($R = 0.995$) was applied during training.
+> 3. Sample rate ($4000\text{ Hz}$) and window length ($4000\text{ samples}$ / $1000\text{ ms}$).
+> 4. Any normalization (min-max, standard scaling, or zero-centering) applied in Edge Impulse Studio.  
+> Training data collected via `leak_detector.ino` in `RUN_MODE_COLLECT` (which streams raw DC-blocked integer counts at 921600 baud) is verified compatible.
 
 ---
 
@@ -99,11 +105,12 @@ When exporting the model from Edge Impulse Studio as a **C++ Library**, the team
 ### Preprocessor & C++ Compile-Time Guardrail Rules
 1. **Include Metadata Header First:** `#include "model-parameters/model_metadata.h"` must occur before any macro validation checks.
 2. **Integer Macros via `#if`:** Integer constants (`EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME`, `EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE`, `EI_CLASSIFIER_LABEL_COUNT`) can be safely checked using preprocessor `#if` directives.
-3. **Frequency Check via C++ `static_assert`:** In Edge Impulse, `EI_CLASSIFIER_FREQUENCY` can be defined as a floating-point literal (e.g. `4000.0f` or `4000.0`). The C preprocessor evaluates only integer arithmetic and will throw a syntax error (`error: floating constant in preprocessor expression`) if evaluated in `#if`. Frequency validation must use C++ `static_assert`:
+3. **Exact Compile-Time Frequency Check via C++ `static_assert`:** In Edge Impulse, `EI_CLASSIFIER_FREQUENCY` can be defined as a floating-point literal (e.g. `4000.0f` or `4000.0`). The C preprocessor evaluates only integer arithmetic and will throw a syntax error (`error: floating constant in preprocessor expression`) if evaluated in `#if`. Frequency validation must use an exact compile-time comparison against `4000.0f` via C++ `static_assert`, where supported by the actual generated metadata type:
    ```cpp
-   static_assert(static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY) == 4000,
-                 "Sampling frequency mismatch: EI_CLASSIFIER_FREQUENCY must be 4000 Hz");
+   static_assert(EI_CLASSIFIER_FREQUENCY == 4000.0f,
+                 "Sampling frequency mismatch: EI_CLASSIFIER_FREQUENCY must be exactly 4000.0f");
    ```
+   *Rationale:* Direct comparison against `4000.0f` avoids `static_cast<uint32_t>`, which would dangerously truncate fractional mismatches (e.g., `4000.5f` truncates to `4000`, silently bypassing validation).
 
 > [!WARNING]
 > **Do not assume `EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE == 4000` automatically.**  
@@ -281,15 +288,24 @@ Any model delivered by the teammate must include a **Data Provenance Disclosure*
 When delivering the model, the teammate must provide:
 
 - [ ] **1. Artifact Archive:** Edge Impulse C++ library export ZIP OR quantized TFLite flat byte array.
-- [ ] **2. Header Verification:** Copy of `model_metadata.h` confirming `EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE == 4000` and `EI_CLASSIFIER_FREQUENCY == 4000`.
-- [ ] **3. Memory Footprint:**
+- [ ] **2. Header Verification:** Copy of `model_metadata.h` confirming:
+  - `EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME == 1`
+  - `EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE == 4000`
+  - `EI_CLASSIFIER_FREQUENCY == 4000.0f` (exact compile-time check against `4000.0f`)
+  - `EI_CLASSIFIER_LABEL_COUNT == 3` (labels: `normal`, `leak`, `noise`)
+- [ ] **3. Mandatory Training Input & Preprocessing Disclosure:**
+  - Exact training input representation and numeric range (must verify compatibility with firmware's $\approx \pm 2048$ centered ADC counts).
+  - Confirmation of DC-block filtering ($R = 0.995$) in training data.
+  - Confirmation of sample rate ($4000\text{ Hz}$) and window length ($4000\text{ samples}$ / $1000\text{ ms}$).
+  - Full disclosure of any normalization applied in Edge Impulse Studio (Edge Impulse DSP must not be assumed to auto-scale arbitrary training-vs-inference differences).
+- [ ] **4. Memory Footprint:**
   - Measured Tensor Arena size (must be $\le 60\text{ KB}$, target $\le 32\text{ KB}$).
   - Compiled Flash size contribution (must be $\le 550\text{ KB}$, target $\le 350\text{ KB}$).
-- [ ] **4. Execution Latency:** Measured inference time on ESP32 @ 240 MHz (must be $\le 300\text{ ms}$).
-- [ ] **5. Score Calibration:** Statement of whether scores are uncalibrated Softmax or temperature-scaled ($T$).
-- [ ] **6. Dataset Provenance Disclosure:** Statement of training data origin (Synthetic vs. Physical Bench).
-- [ ] **7. Model Adapter Implementation:** Working C++ implementation of `tinyml_init()` and `tinyml_infer()` conforming to [Section 11](#11-adapter-header-specification-model_adapterh).
-- [ ] **8. Firmware File Placement:** Confirm files are extracted into the Arduino `libraries/` directory (e.g., `Arduino/libraries/<project_name>_inferencing/`) or PlatformIO `lib/` directory. *(Do NOT place model files in `mobile_app/`, which is the Flutter mobile client).*
+- [ ] **5. Execution Latency:** Measured inference time on ESP32 @ 240 MHz (must be $\le 300\text{ ms}$).
+- [ ] **6. Score Calibration:** Statement of whether scores are uncalibrated Softmax or temperature-scaled ($T$).
+- [ ] **7. Dataset Provenance Disclosure:** Statement of training data origin (Synthetic vs. Physical Bench).
+- [ ] **8. Model Adapter Implementation:** Working C++ implementation of `tinyml_init()` and `tinyml_infer()` conforming to [Section 11](#11-adapter-header-specification-model_adapterh).
+- [ ] **9. Firmware File Placement:** Confirm files are extracted into the Arduino `libraries/` directory (e.g., `Arduino/libraries/<project_name>_inferencing/`) or PlatformIO `lib/` directory. *(Do NOT place model files in `mobile_app/`, which is the Flutter mobile client).*
 
 ---
 

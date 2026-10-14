@@ -72,9 +72,9 @@ When `#define USE_EDGE_IMPULSE 1` is enabled in firmware, the model header must 
     #error "Model rejection: Output class count mismatch. Firmware requires exactly 3 classes: normal, leak, noise."
   #endif
 
-  // 3. C++ static_assert for frequency (safely handles float literals)
-  static_assert(static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY) == 4000,
-                "Model rejection: Sampling frequency mismatch. Firmware timer runs at 4000 Hz.");
+  // 3. Exact compile-time frequency comparison against 4000.0f (prevents fractional mismatches from passing integer truncation)
+  static_assert(EI_CLASSIFIER_FREQUENCY == 4000.0f,
+                "Model rejection: Sampling frequency mismatch. EI_CLASSIFIER_FREQUENCY must be exactly 4000.0f.");
 #endif
 ```
 
@@ -118,15 +118,21 @@ To prevent catastrophic train-serve skew between offline Python/Edge Impulse tra
 | **Numeric Data Type** | `float32` (IEEE 754 single-precision) | `float32` array |
 | **Nominal Signal Range** | Approximately $-2048.0$ to $+2047.0$ counts | Approximately $-2048.0$ to $+2047.0$ counts |
 | **High-Pass Filter** | First-order IIR DC-block filter ($R = 0.995$) | Must match $R = 0.995$ filter |
-| **Firmware Normalization** | **None** (unscaled centered counts in C) | Internal DSP block handles scaling |
+| **Firmware Normalization** | **None** (unscaled centered counts in C, $\approx \pm 2048$) | Must match training representation (Do NOT assume DSP auto-scales) |
 | **Input Frame Length** | Exactly 4,000 samples ($1000\text{ ms}$ @ $4\text{ kHz}$) | Exactly 4,000 samples |
 | **Output Label Order** | `[0: "normal", 1: "leak", 2: "noise"]` | `[0: "normal", 1: "leak", 2: "noise"]` |
 
 > [!WARNING]
-> **Train-Serve Audio Scaling Mismatch Risk:**  
+> **Train-Serve Audio Scaling Mismatch Hazard:**  
 > The firmware delivers unscaled, centered `float32` ADC counts ($\pm 2048$ nominal range) directly to `numpy::signal_from_buffer()`.  
-> If the teammate's model is trained on standard floating-point audio WAV files (normalized to $[-1.0, +1.0]$) or 16-bit PCM ($\pm 32768$) without applying the identical scaling transform in Edge Impulse Studio, the model input magnitudes will be mismatched by orders of magnitude, causing inference failure.  
-> Training data collected via `leak_detector.ino` in `RUN_MODE_COLLECT` (which streams raw DC-blocked integer counts at 921600 baud) avoids this skew.
+> **Edge Impulse DSP blocks (MFCC, Spectrogram, MFE) must NOT be assumed to correct arbitrary training-versus-inference scaling differences.**  
+> If the teammate's model was trained on floating-point audio WAV files (normalized to $[-1.0, +1.0]$) or 16-bit PCM ($\pm 32768$) without applying the identical scaling transform in Edge Impulse Studio, the model input magnitudes will be mismatched by up to 2,000×, causing neural network saturation and total inference failure.  
+> **Mandatory Teammate Disclosure:** The teammate must explicitly disclose:
+> 1. Exact training input signal units and numeric range.
+> 2. Whether DC-block filtering ($R = 0.995$) was applied during training.
+> 3. Effective sample rate ($4000\text{ Hz}$) and window duration ($1000\text{ ms}$).
+> 4. Any normalization (min-max, standard scaling, or zero-centering) applied in Edge Impulse Studio.  
+> Training data collected directly via `leak_detector.ino` in `RUN_MODE_COLLECT` (which streams raw DC-blocked integer counts at 921600 baud) is verified compatible.
 
 ---
 
@@ -182,24 +188,31 @@ When the teammate delivers the acoustic TinyML model, they must supply the follo
        - EI_CLASSIFIER_RAW_SAMPLE_COUNT == 4000
        - EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME == 1
        - EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE == 4000
-       - EI_CLASSIFIER_FREQUENCY == 4000
+       - EI_CLASSIFIER_FREQUENCY == 4000.0f (exact compile-time check against 4000.0f)
        - EI_CLASSIFIER_LABEL_COUNT == 3
 
-[ ] 3. OUTPUT CLASS MAPPING CONFIRMATION
+[ ] 3. MANDATORY TRAINING INPUT & PREPROCESSING DISCLOSURE
+       - Exact training input representation (e.g. raw ADC counts vs float audio)
+       - Numeric range (must verify compatibility with firmware's ~ +/-2048 counts)
+       - DC-block filtering: Was R = 0.995 high-pass IIR applied to training data?
+       - Effective sample rate (4000 Hz) and window length (4000 samples / 1000 ms)
+       - Normalization applied in Edge Impulse Studio (Edge Impulse DSP must NOT be assumed to auto-scale training-vs-inference differences)
+
+[ ] 4. OUTPUT CLASS MAPPING CONFIRMATION
        - Index 0: "normal"
        - Index 1: "leak"
        - Index 2: "noise"
 
-[ ] 4. BENCH RESOURCE MEASUREMENTS (Measured on ESP32-WROOM-32E @ 240 MHz)
+[ ] 5. BENCH RESOURCE MEASUREMENTS (Measured on ESP32-WROOM-32E @ 240 MHz)
        - Tensor Arena RAM: ______ KB (Target <= 32 KB, Hard Limit <= 60 KB)
        - Flash Binary Contribution: ______ KB (Target <= 350 KB, Hard Limit <= 550 KB)
        - Inference Latency: ______ ms (Target <= 300 ms, Peak <= 420 ms under Wi-Fi load)
 
-[ ] 5. SCORE CALIBRATION DISCLOSURE
+[ ] 6. SCORE CALIBRATION DISCLOSURE
        - Are scores uncalibrated Softmax or temperature-scaled?
        - If calibrated, provide temperature scaling parameter T: ______
 
-[ ] 6. TRAINING DATASET PROVENANCE DISCLOSURE
+[ ] 7. TRAINING DATASET PROVENANCE DISCLOSURE
        - Was training performed on synthetic signals (generate_synthetic.py)
          or physical acoustic pipe recordings?
        - If physical: Pipe material, diameter, pressure range, and noise conditions.

@@ -99,10 +99,11 @@ In C/C++, preprocessor directives (`#if`, `#elif`) evaluate **only integer const
 3. **Frequency Check via C++ `static_assert`:**
    Because `EI_CLASSIFIER_FREQUENCY` can be a float, it must be validated using C++ `static_assert` or runtime startup assertion:
    ```cpp
-     static_assert(static_cast<uint32_t>(EI_CLASSIFIER_FREQUENCY) == 4000,
-                   "Model rejection: Sampling frequency mismatch. Firmware timer runs at 4000 Hz.");
+     static_assert(EI_CLASSIFIER_FREQUENCY == 4000.0f,
+                   "Model rejection: Sampling frequency mismatch. Firmware timer runs at 4000.0f Hz.");
    #endif
    ```
+   *Note: Using exact compile-time comparison against `4000.0f` prevents fractional mismatches from passing integer truncation.*
 4. **Honest Readiness Status:** These guardrails are designed and documented, but **have not yet been tested against the teammate's model** because the archive has not been provided.
 
 ---
