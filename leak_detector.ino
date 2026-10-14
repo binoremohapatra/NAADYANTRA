@@ -50,6 +50,7 @@
 #define RUN_MODE          RUN_MODE_DETECT   // Set to RUN_MODE_COLLECT for dataset acquisition
 
 #define USE_EDGE_IMPULSE      0   // 0 = RMS fallback detector (verified buildable), 1 = Edge Impulse TinyML
+#define USE_TINYML_HAZARD_FUSION 1 // 1 = Embedded TinyML multi-sensor hazard fusion (hazard_model.h), 0 = heuristic only
 #define USE_REFERENCE_SENSOR  0   // Dual microphone ambient noise subtraction
 #define HAS_GAS_SENSOR        1
 #define HAS_MOISTURE_SENSOR   1
@@ -59,6 +60,10 @@
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
 #define DEBUG_SERIAL          1
+
+#if USE_TINYML_HAZARD_FUSION
+#include "hazard_model.h"
+#endif
 
 // ---- WiFi + Backend ----
 #define WIFI_SSID        "YOUR_WIFI_NAME"
@@ -232,6 +237,8 @@ struct FuseIn {
   bool gasAlarm, gasWarn, gasFault, heatAlarm, heatWarn, heatFault, uvAlarm, uvWarn;
   bool leak, wet, noSignal, stale, ambient, startup;
   Role role;
+  int hzState;
+  uint8_t hzConf;
 };
 struct Verdict { Alert alert; Cause cause; };
 
@@ -259,6 +266,9 @@ struct App {
   Session sess; uint32_t lastSnapMs = 0, lastDbgMs = 0;
   // instrumentation
   uint32_t minFreeHeap = UINT32_MAX;
+  // TinyML multimodal hazard fusion state
+  int hzState = 0;
+  uint8_t hzConf = 0;
 };
 
 // =============================================================================
@@ -489,6 +499,11 @@ static GasLevel levelFrom(float v, float warn, float alarm, GasLevel prev) {
 // Priority arbitration: Gas > Heat > UV > Acoustic Leak > Moisture > Warnings > System faults
 //           > Sensor faults > Initialization > Ambient noise > Uncertain
 static Verdict fuse(const FuseIn& in) {
+  // High-confidence TinyML multimodal hazard reinforcement (hazard_model.h)
+  if (in.hzConf >= 60) {
+    if (in.hzState == 3) return {ALERT_DANGER,  CAUSE_GAS_ALARM};  // Gas Buildup predicted
+    if (in.hzState == 4) return {ALERT_DANGER,  CAUSE_HEAT_ALARM}; // Workpiece Overheat predicted
+  }
   if (in.gasAlarm)  return {ALERT_DANGER,  CAUSE_GAS_ALARM};
   if (in.heatAlarm) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};
   if (in.uvAlarm)   return {ALERT_DANGER,  CAUSE_UV_ALARM};
@@ -497,6 +512,7 @@ static Verdict fuse(const FuseIn& in) {
   if (in.gasWarn)   return {ALERT_CAUTION, CAUSE_GAS_WARN};
   if (in.heatWarn)  return {ALERT_CAUTION, CAUSE_HEAT_WARN};
   if (in.uvWarn)    return {ALERT_CAUTION, CAUSE_UV_WARN};
+  if (in.hzConf >= 50 && in.hzState == 2) return {ALERT_CAUTION, CAUSE_HEAT_WARN}; // Proximity breach warning
   if (in.gasFault || in.heatFault || in.noSignal || in.stale) return {ALERT_CAUTION, CAUSE_FAULT};
   if (in.startup)   return {ALERT_CAUTION, CAUSE_STARTUP};
   if (in.ambient)   return {ALERT_CAUTION, CAUSE_AMBIENT};
@@ -694,10 +710,10 @@ static void logEvent(const char* ev, uint32_t now) {
   snprintf(it.trainee, sizeof(it.trainee), "%s", gTrainee);
   const int n = snprintf(it.json, sizeof(it.json),
     "{\"t\":%lu,\"up\":%lu,\"ev\":\"%s\",\"alert\":\"%s\",\"cause\":\"%s\",\"lbl\":\"%s\","
-    "\"pl\":%.2f,\"rms\":%.1f,\"gas\":%d,\"gr\":%.2f,\"tc\":%.1f,\"uv\":%d,\"wet\":%d}",
+    "\"pl\":%.2f,\"rms\":%.1f,\"gas\":%d,\"gr\":%.2f,\"tc\":%.1f,\"uv\":%d,\"wet\":%d,\"hz\":%d,\"hz_c\":%u}",
     (unsigned long)nowEpoch(), (unsigned long)(now - app.sess.startMs), ev, alertName(app.alert),
     causeName(app.cause), app.label, app.pLeak, app.rmsEma, gasDelta(), gasRatio(),
-    app.heat.temp, uvDelta(), app.moist.wet.state ? 1 : 0);
+    app.heat.temp, uvDelta(), app.moist.wet.state ? 1 : 0, app.hzState, (unsigned)app.hzConf);
   if (n <= 0 || n >= (int)sizeof(it.json)) return;
   enqueueLog(it);
 }
@@ -1084,6 +1100,25 @@ static void updateVerdict(uint32_t now) {
   in.ambient   = app.ambient;
   in.startup   = !app.haveResult || (!USE_EDGE_IMPULSE && !app.rmsCal);
   in.role      = app.role;
+#if USE_TINYML_HAZARD_FUSION
+  float hzX[HZ_FEATURE_COUNT] = {
+    300.0f,                                              // 0: distance_mm (nominal safe standoff)
+    0.0f,                                                // 1: distance_velocity
+    (HAS_HEAT_SENSOR ? app.heat.temp : 25.0f),           // 2: temp_object
+    25.0f,                                               // 3: temp_ambient
+    (HAS_HEAT_SENSOR ? (app.heat.temp - 25.0f) : 0.0f),   // 4: delta_temp
+    (HAS_UV_SENSOR ? (float)uvDelta() : 0.0f),           // 5: uv_index
+    (HAS_GAS_SENSOR ? (float)gasDelta() : 0.0f)          // 6: gas_ppm_slope
+  };
+  uint8_t hzConf = 0;
+  app.hzState = hazard_predict(hzX, &hzConf);
+  app.hzConf = hzConf;
+  in.hzState = app.hzState;
+  in.hzConf = app.hzConf;
+#else
+  in.hzState = 0;
+  in.hzConf = 0;
+#endif
 
   app.faultMask = (in.noSignal ? 1 : 0) | (in.gasFault ? 2 : 0) | (in.stale ? 4 : 0) | (in.heatFault ? 8 : 0);
 

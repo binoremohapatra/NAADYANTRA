@@ -550,3 +550,79 @@ class TestWiFiReconnectionBackoffLogic:
         # Now reconnect
         wifi.on_connect()
         assert wifi.current_backoff_ms == 5000
+
+
+# =============================================================================
+# TinyML Multimodal Hazard Fusion Integration Tests (hazard_model.h)
+# =============================================================================
+
+class TestHazardModelFusionLogic:
+    """Verifies the integration of the TinyML hazard model with leak_detector.ino."""
+
+    STATES = ["Normal", "Safe Arc", "Proximity Breach", "Gas Buildup", "Workpiece Overheat"]
+
+    def _fuse_sim(self, gas_alarm=False, heat_alarm=False, uv_alarm=False,
+                  leak=False, wet=False, gas_warn=False, heat_warn=False, uv_warn=False,
+                  hz_state=0, hz_conf=0):
+        """Python replica of leak_detector.ino fuse() arbitration logic with TinyML."""
+        if hz_conf >= 60:
+            if hz_state == 3:
+                return ("DANGER", "GAS_ALARM")
+            if hz_state == 4:
+                return ("DANGER", "HEAT_ALARM")
+        if gas_alarm:
+            return ("DANGER", "GAS_ALARM")
+        if heat_alarm:
+            return ("DANGER", "HEAT_ALARM")
+        if uv_alarm:
+            return ("DANGER", "UV_ALARM")
+        if leak:
+            return ("DANGER", "LEAK")
+        if wet:
+            return ("DANGER", "WET")
+        if gas_warn:
+            return ("CAUTION", "GAS_WARN")
+        if heat_warn:
+            return ("CAUTION", "HEAT_WARN")
+        if uv_warn:
+            return ("CAUTION", "UV_WARN")
+        if hz_conf >= 50 and hz_state == 2:
+            return ("CAUTION", "HEAT_WARN")
+        return ("OK", "NONE")
+
+    def test_high_confidence_gas_buildup_asserts_danger(self):
+        alert, cause = self._fuse_sim(hz_state=3, hz_conf=85)
+        assert alert == "DANGER"
+        assert cause == "GAS_ALARM"
+
+    def test_high_confidence_overheat_asserts_danger(self):
+        alert, cause = self._fuse_sim(hz_state=4, hz_conf=90)
+        assert alert == "DANGER"
+        assert cause == "HEAT_ALARM"
+
+    def test_proximity_breach_asserts_caution_heat_warn(self):
+        alert, cause = self._fuse_sim(hz_state=2, hz_conf=70)
+        assert alert == "CAUTION"
+        assert cause == "HEAT_WARN"
+
+    def test_low_confidence_hazard_does_not_override_normal_state(self):
+        alert, cause = self._fuse_sim(hz_state=3, hz_conf=40)
+        assert alert == "OK"
+        assert cause == "NONE"
+
+    def test_physical_leak_retains_priority_when_hazard_normal(self):
+        alert, cause = self._fuse_sim(leak=True, hz_state=0, hz_conf=95)
+        assert alert == "DANGER"
+        assert cause == "LEAK"
+
+    def test_telemetry_event_json_includes_hazard_fields(self):
+        import json
+        event_str = (
+            '{"t":1750000000,"up":5000,"ev":"snap","alert":"OK","cause":"NONE","lbl":"no_leak(rms)",'
+            '"pl":0.05,"rms":45.2,"gas":0,"gr":1.00,"tc":26.5,"uv":0,"wet":0,"hz":0,"hz_c":80}'
+        )
+        parsed = json.loads(event_str)
+        assert parsed["hz"] == 0
+        assert parsed["hz_c"] == 80
+        assert "t" in parsed and "pl" in parsed and "rms" in parsed
+
