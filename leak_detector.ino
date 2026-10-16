@@ -57,23 +57,26 @@
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
 #define DEBUG_SERIAL          1
-#define VERIFY_TLS_CERT       0   // 0 = Insecure for local testing, 1 = Enable TLS verification for production
+#define VERIFY_TLS_CERT       1   // 1 = Production TLS certificate verification enabled (GlobalSign ECC Root CA - R4), 0 = bench debug
 
 #if USE_TINYML_HAZARD_FUSION
 #include "hazard_model.h"
 #endif
 
-// ---- WiFi + Backend ----
-#define WIFI_SSID        "YOUR_WIFI_NAME"
-#define WIFI_PASSWORD    "YOUR_WIFI_PASSWORD"
-// ⚠️ CLOUD DEPLOYMENT URL MUST BE VERIFIED BEFORE HARDWARE CONNECTION
-// Currently set to Flutter app's cloud URL; verify actual Render/deployment endpoint
-#define BACKEND_URL      "https://naadyantra.onrender.com"   // Verified active Render backend API endpoint
-// ⚠️ SECURITY: DEVICE_KEY MUST BE ROTATED FOR PRODUCTION
-// Generate a secure key and update backend DEVICE_KEY_HASH accordingly
-#define DEVICE_KEY       "dev-key-123"                // Device authentication secret token
-#define DEVICE_ID        "SIH-DEV-01"
-#define TRAINEE_ID       "T001"    // Default operator trainee identifier
+// ---- Wi-Fi & Provisioned Device Credentials ----
+// Modular credential loading: if credentials.h exists (ignored by git), load private hardware secrets.
+// Otherwise, fall back to safe placeholders and instruct the operator.
+#if __has_include("credentials.h")
+  #include "credentials.h"
+#else
+  #warning "No credentials.h found. Using default placeholder configuration. Copy credentials.example.h to credentials.h before flashing."
+  #define WIFI_SSID        "YOUR_BENCH_WIFI_SSID"
+  #define WIFI_PASSWORD    "YOUR_BENCH_WIFI_PASSWORD"
+  #define BACKEND_URL      "https://naadyantra.onrender.com"
+  #define DEVICE_KEY       "YOUR_PROVISIONED_DEVICE_KEY"
+  #define DEVICE_ID        "SIH-DEV-01"
+  #define TRAINEE_ID       "T001"
+#endif
 
 // ---- Pins ----
 #if CONFIG_IDF_TARGET_ESP32S3      // ESP32-S3 default pinout mapping
@@ -732,12 +735,24 @@ static bool sendItem(WiFiClientSecure& secure, LogItem& it) {
   const bool https = strncmp(url, "https", 5) == 0;
   WiFiClient& cl = https ? static_cast<WiFiClient&>(secure) : gPlain;
   HTTPClient http;
-  if (!http.begin(cl, url)) return false;
+  if (!http.begin(cl, url)) {
+#if DEBUG_SERIAL
+    Serial.printf("[http] begin failed for %s\n", url);
+#endif
+    return false;
+  }
   http.setConnectTimeout(5000);
   http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_KEY);
   const int code = http.POST((uint8_t*)it.json, strlen(it.json));
+#if DEBUG_SERIAL
+  if (code != 200) {
+    Serial.printf("[http] POST error: code=%d (%s)\n", code, http.errorToString(code).c_str());
+  } else {
+    Serial.printf("[http] POST success (200 OK): %s\n", it.kind == LOGK_SUMMARY ? "summary" : "event");
+  }
+#endif
   http.end();
   return code == 200;                                          // Server deduplicates idempotently: safe to retry
 }

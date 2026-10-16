@@ -76,6 +76,7 @@ temp/
 *.exe
 *.dll
 .env
+credentials.h
 
 # Unrelated projects
 binoreportfolio/
