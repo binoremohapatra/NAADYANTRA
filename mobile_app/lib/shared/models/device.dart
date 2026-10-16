@@ -90,16 +90,24 @@ class Device {
 class DeviceStatus {
   final String deviceId;
   final DateTime? lastSeenAt;
+  final DateTime? lastTelemetryAt;
   final String? firmwareVersion;
   final bool isOnline;
+  final bool hasData;
+  final bool isStale;
+  final int? stalenessSeconds;
   final int recentActivityCount;
   final String? lastError;
 
   DeviceStatus({
     required this.deviceId,
     this.lastSeenAt,
+    this.lastTelemetryAt,
     this.firmwareVersion,
     required this.isOnline,
+    this.hasData = false,
+    this.isStale = false,
+    this.stalenessSeconds,
     required this.recentActivityCount,
     this.lastError,
   });
@@ -110,8 +118,14 @@ class DeviceStatus {
       lastSeenAt: json['last_seen_at'] != null
           ? DateTime.parse(json['last_seen_at'] as String)
           : null,
+      lastTelemetryAt: json['last_telemetry_at'] != null
+          ? DateTime.parse(json['last_telemetry_at'] as String)
+          : null,
       firmwareVersion: json['firmware_version'] as String?,
       isOnline: json['is_online'] as bool? ?? false,
+      hasData: json['has_data'] as bool? ?? false,
+      isStale: json['is_stale'] as bool? ?? false,
+      stalenessSeconds: json['staleness_seconds'] as int?,
       recentActivityCount: json['recent_activity_count'] as int? ?? 0,
       lastError: json['last_error'] as String?,
     );
@@ -121,8 +135,12 @@ class DeviceStatus {
     return {
       'device_id': deviceId,
       'last_seen_at': lastSeenAt?.toIso8601String(),
+      'last_telemetry_at': lastTelemetryAt?.toIso8601String(),
       'firmware_version': firmwareVersion,
       'is_online': isOnline,
+      'has_data': hasData,
+      'is_stale': isStale,
+      'staleness_seconds': stalenessSeconds,
       'recent_activity_count': recentActivityCount,
       'last_error': lastError,
     };
