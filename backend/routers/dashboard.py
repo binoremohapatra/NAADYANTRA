@@ -9,8 +9,10 @@ from backend.auth import get_current_trainer_or_admin
 from backend.schemas import (
     DashboardOverviewResponse, DashboardRecentActivityItem,
     DashboardTrendsResponse, DashboardDeviceHealthResponse,
-    DashboardAlertResponse, PaginatedResponse
+    DashboardAlertResponse, PaginatedResponse,
 )
+from backend.config import settings
+from backend.time_utils import to_utc_datetime, utc_now
 
 router = APIRouter()
 
@@ -27,14 +29,15 @@ async def dashboard_overview(
     total_trainees = db.query(Trainee).count()
     total_events = db.query(Event).count()
     
+    now = utc_now()
     # Recent sessions (last 24 hours)
-    recent_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    recent_threshold = now - timedelta(hours=24)
     recent_sessions_count = db.query(DBSession).filter(
         DBSession.started_at >= recent_threshold
     ).count()
     
     # Device status breakdown
-    online_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+    online_threshold = now - timedelta(
         seconds=settings.device_online_threshold_seconds
     )
     all_devices = db.query(Device).all()
@@ -43,10 +46,10 @@ async def dashboard_overview(
     stale_devices_count = 0
 
     for d in all_devices:
-        ls = d.last_seen_at.replace(tzinfo=None) if (d.last_seen_at and d.last_seen_at.tzinfo) else d.last_seen_at
-        if not ls:
+        ls_utc = to_utc_datetime(d.last_seen_at)
+        if not ls_utc:
             never_reported_count += 1
-        elif ls > online_threshold and d.is_active:
+        elif ls_utc > online_threshold and d.is_active:
             online_devices_count += 1
         else:
             stale_devices_count += 1
@@ -209,14 +212,12 @@ async def device_health(
     """Device activity and known health indicators."""
     devices = db.query(Device).all()
     
+    now = utc_now()
+    threshold = now - timedelta(seconds=settings.device_online_threshold_seconds)
     health_data = []
     for device in devices:
-        # Determine online status
-        from backend.config import settings
-        is_online = False
-        if device.last_seen_at:
-            threshold = datetime.now(timezone.utc) - timedelta(seconds=settings.device_online_threshold_seconds)
-            is_online = device.last_seen_at > threshold
+        ls_utc = to_utc_datetime(device.last_seen_at)
+        is_online = bool(ls_utc and ls_utc > threshold and device.is_active)
         
         # Count sessions and events
         total_sessions = db.query(DBSession).filter(DBSession.device_id == device.device_id).count()
@@ -230,7 +231,7 @@ async def device_health(
         health_data.append(DashboardDeviceHealthResponse(
             device_id=device.device_id,
             name=device.name,
-            last_seen_at=device.last_seen_at,
+            last_seen_at=ls_utc,
             is_online=is_online,
             total_sessions=total_sessions,
             total_events=total_events,
