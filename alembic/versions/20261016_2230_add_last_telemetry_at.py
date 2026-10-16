@@ -17,9 +17,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add last_telemetry_at column to devices table safely
-    op.add_column('devices', sa.Column('last_telemetry_at', sa.DateTime(), nullable=True))
+    # Safely and idempotently add last_telemetry_at to devices table
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [c['name'] for c in inspector.get_columns('devices')]
+    if 'last_telemetry_at' not in columns:
+        op.add_column('devices', sa.Column('last_telemetry_at', sa.DateTime(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column('devices', 'last_telemetry_at')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [c['name'] for c in inspector.get_columns('devices')]
+    if 'last_telemetry_at' in columns:
+        op.drop_column('devices', 'last_telemetry_at')

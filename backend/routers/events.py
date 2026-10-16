@@ -6,6 +6,7 @@ from typing import Optional
 from backend.database import get_db, Event, SessionSummary
 from backend.auth import get_current_trainer_or_admin
 from backend.schemas import EventResponse, SessionSummaryResponse, PaginatedResponse
+from backend.time_utils import to_utc_datetime
 
 router = APIRouter()
 
@@ -47,12 +48,12 @@ async def list_events(
         query = query.filter(Event.alert == alert)
     
     if date_from:
-        df = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-        query = query.filter(Event.server_timestamp >= df)
+        df_utc = to_utc_datetime(date_from)
+        query = query.filter(Event.server_timestamp >= df_utc)
     
     if date_to:
-        dt = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
-        query = query.filter(Event.server_timestamp <= dt)
+        dt_utc = to_utc_datetime(date_to)
+        query = query.filter(Event.server_timestamp <= dt_utc)
     
     total = query.count()
     events = query.order_by(Event.server_timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -102,12 +103,12 @@ async def list_summaries(
         query = query.filter(SessionSummary.trainee_id == trainee_id)
     
     if date_from:
-        df = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-        query = query.filter(SessionSummary.server_timestamp >= df)
+        df_utc = to_utc_datetime(date_from)
+        query = query.filter(SessionSummary.server_timestamp >= df_utc)
     
     if date_to:
-        dt = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
-        query = query.filter(SessionSummary.server_timestamp <= dt)
+        dt_utc = to_utc_datetime(date_to)
+        query = query.filter(SessionSummary.server_timestamp <= dt_utc)
     
     total = query.count()
     summaries = query.order_by(SessionSummary.server_timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()

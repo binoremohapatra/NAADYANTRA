@@ -11,6 +11,7 @@ from backend.schemas import (
     LatestTelemetryResponse, DeviceUpdateRequest, DeviceKeyRotateResponse, PaginatedResponse
 )
 from backend.config import settings
+from backend.time_utils import to_utc_datetime, utc_now
 
 router = APIRouter()
 
@@ -108,12 +109,13 @@ async def list_devices(
     total = query.count()
     devices = query.order_by(Device.last_seen_at.desc().nulls_last()).offset((page - 1) * page_size).limit(page_size).all()
     
-    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=settings.device_online_threshold_seconds)
+    now = utc_now()
+    threshold = now - timedelta(seconds=settings.device_online_threshold_seconds)
     items = []
     for d in devices:
         resp = DeviceResponse.model_validate(d)
-        ls = d.last_seen_at.replace(tzinfo=None) if (d.last_seen_at and d.last_seen_at.tzinfo) else d.last_seen_at
-        resp.is_online = bool(ls and ls > threshold and d.is_active)
+        ls_utc = to_utc_datetime(d.last_seen_at)
+        resp.is_online = bool(ls_utc and ls_utc > threshold and d.is_active)
         items.append(resp)
     
     return PaginatedResponse(
@@ -139,9 +141,10 @@ async def get_device(
         )
     
     resp = DeviceResponse.model_validate(device)
-    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=settings.device_online_threshold_seconds)
-    ls = device.last_seen_at.replace(tzinfo=None) if (device.last_seen_at and device.last_seen_at.tzinfo) else device.last_seen_at
-    resp.is_online = bool(ls and ls > threshold and device.is_active)
+    now = utc_now()
+    threshold = now - timedelta(seconds=settings.device_online_threshold_seconds)
+    ls_utc = to_utc_datetime(device.last_seen_at)
+    resp.is_online = bool(ls_utc and ls_utc > threshold and device.is_active)
     return resp
 
 
@@ -159,13 +162,14 @@ async def get_device_status(
             detail="Device not found"
         )
     
-    # Determine online status cleanly for SQLite or PostgreSQL
-    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=settings.device_online_threshold_seconds)
-    ls = device.last_seen_at.replace(tzinfo=None) if (device.last_seen_at and device.last_seen_at.tzinfo) else device.last_seen_at
-    is_online = bool(ls and ls > threshold and device.is_active)
+    # Determine online status cleanly using normalized timezone-aware UTC
+    now = utc_now()
+    threshold = now - timedelta(seconds=settings.device_online_threshold_seconds)
+    ls_utc = to_utc_datetime(device.last_seen_at)
+    is_online = bool(ls_utc and ls_utc > threshold and device.is_active)
     
-    # Count recent activity (last 24 hours) with naive UTC comparison
-    recent_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    # Count recent activity (last 24 hours) with aware UTC comparison
+    recent_threshold = now - timedelta(hours=24)
     recent_activity_count = db.query(Event).filter(
         Event.device_id == device_id,
         Event.server_timestamp >= recent_threshold
@@ -178,15 +182,14 @@ async def get_device_status(
 
     has_data = latest_event is not None
     if latest_event and latest_event.server_timestamp:
-        ts = latest_event.server_timestamp.replace(tzinfo=None) if latest_event.server_timestamp.tzinfo else latest_event.server_timestamp
-        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-        staleness_seconds = max(0, int((now_naive - ts).total_seconds()))
+        ts_utc = to_utc_datetime(latest_event.server_timestamp)
+        staleness_seconds = max(0, int((now - ts_utc).total_seconds()))
         is_stale = staleness_seconds > settings.device_online_threshold_seconds
-        last_telemetry_at = latest_event.server_timestamp
+        last_telemetry_at = ts_utc
     else:
         staleness_seconds = -1
         is_stale = True
-        last_telemetry_at = device.last_telemetry_at
+        last_telemetry_at = to_utc_datetime(device.last_telemetry_at)
 
     # Get last error (if any) safely
     last_error = None
@@ -204,7 +207,7 @@ async def get_device_status(
         is_registered=True,
         is_active=device.is_active,
         is_online=is_online,
-        last_seen_at=device.last_seen_at,
+        last_seen_at=ls_utc,
         last_telemetry_at=last_telemetry_at,
         has_data=has_data,
         is_stale=is_stale,
@@ -248,9 +251,9 @@ async def get_latest_telemetry(
         )
 
     from backend.schemas import EventResponse
-    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-    ts = latest_event.server_timestamp.replace(tzinfo=None) if latest_event.server_timestamp.tzinfo else latest_event.server_timestamp
-    staleness = max(0, int((now_naive - ts).total_seconds()))
+    now = utc_now()
+    ts_utc = to_utc_datetime(latest_event.server_timestamp)
+    staleness = max(0, int((now - ts_utc).total_seconds())) if ts_utc else 0
     is_stale = staleness > stale_after_seconds
 
     return LatestTelemetryResponse(
@@ -337,9 +340,10 @@ async def update_device(
     db.refresh(device)
     
     resp = DeviceResponse.model_validate(device)
-    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=settings.device_online_threshold_seconds)
-    ls = device.last_seen_at.replace(tzinfo=None) if (device.last_seen_at and device.last_seen_at.tzinfo) else device.last_seen_at
-    resp.is_online = bool(ls and ls > threshold and device.is_active)
+    now = utc_now()
+    threshold = now - timedelta(seconds=settings.device_online_threshold_seconds)
+    ls_utc = to_utc_datetime(device.last_seen_at)
+    resp.is_online = bool(ls_utc and ls_utc > threshold and device.is_active)
     return resp
 
 
