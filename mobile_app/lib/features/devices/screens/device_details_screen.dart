@@ -168,6 +168,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
   ) {
     return statusAsync.when(
       data: (status) {
+        final device = deviceAsync.valueOrNull;
         final isOnline = status.isOnline;
         final events = eventsAsync.valueOrNull ?? [];
         final latestEvent = events.isNotEmpty ? events.first : null;
@@ -178,6 +179,12 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
         final temp = latestEvent?.temperature;
         final uv = latestEvent?.uvDelta;
         final leakProb = latestEvent?.leakProbability;
+
+        // Use Device model connectivity methods if available
+        final connectivityStatus = device?.connectivityStatus ?? (isOnline ? 'online' : 'offline');
+        final stalenessText = device?.stalenessText ?? (status.lastSeenAt != null
+            ? DateFormat('yyyy-MM-dd • HH:mm:ss').format(status.lastSeenAt!.toLocal())
+            : 'Never seen');
 
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -234,11 +241,13 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                                     const SizedBox(width: 4),
                                   ],
                                   StatusPill(
-                                    label: isOnline ? 'ONLINE' : 'OFFLINE',
-                                    type: isOnline
+                                    label: connectivityStatus.toUpperCase(),
+                                    type: connectivityStatus == 'online'
                                         ? StatusType.online
-                                        : StatusType.offline,
-                                    showDot: !isOnline,
+                                        : (connectivityStatus == 'offline'
+                                            ? StatusType.offline
+                                            : StatusType.neutral),
+                                    showDot: connectivityStatus != 'online',
                                   ),
                                 ],
                               ),
@@ -269,7 +278,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'LAST TELEMETRY PACKET',
+                              'LAST CONTACT',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
@@ -279,15 +288,14 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              status.lastSeenAt != null
-                                  ? DateFormat(
-                                      'yyyy-MM-dd • HH:mm:ss',
-                                    ).format(status.lastSeenAt!.toLocal())
-                                  : 'No Telemetry Received Yet',
-                              style: const TextStyle(
+                              stalenessText,
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                fontFeatures: [FontFeature.tabularFigures()],
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                                color: device?.isStale == true
+                                    ? AppColors.alertCaution
+                                    : null,
                               ),
                             ),
                           ],
@@ -319,9 +327,50 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
 
             const SizedBox(height: 12),
 
-            // ── 2. Real Sensor Measurements Readouts ──
+            // ── Staleness Warning Banner ──
+            if (device?.isStale == true)
+              StaggeredEntrance(
+                index: 1,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFFFFF3E0) // Light orange warning
+                        : const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.alertCaution,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppColors.alertCaution,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Device data is stale. Last contact was ${device?.stalenessText ?? "unknown"}.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.darkBurntOrange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 12),
+
+            // ── 3. Real Sensor Measurements Readouts ──
             StaggeredEntrance(
-              index: 1,
+              index: 2,
               child: IndustrialCard(
                 title: 'LIVE SENSOR READINGS',
                 subtitle: 'Actual ADC & Transducer Values Transmitted by Node',
@@ -445,9 +494,9 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
 
             const SizedBox(height: 12),
 
-            // ── 3. Detection & Machine Learning Analysis ──
+            // ── 4. Detection & Machine Learning Analysis ──
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: IndustrialCard(
                 title: 'DETECTION & MODEL VERDICT',
                 subtitle: 'Acoustic Pipeline & Multi-Hazard Sensor Arbitration',

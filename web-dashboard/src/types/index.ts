@@ -1,0 +1,134 @@
+export interface Device {
+  id: number;
+  device_id: string;
+  name: string | null;
+  firmware_version: string | null;
+  last_seen_at: string | null;
+  last_telemetry_at?: string | null;
+  device_metadata: Record<string, any>;
+  created_at: string;
+  is_active: boolean;
+  is_online?: boolean;
+}
+
+export interface DeviceStatus {
+  device_id: string;
+  is_registered?: boolean;
+  is_active?: boolean;
+  last_seen_at: string | null;
+  last_telemetry_at?: string | null;
+  firmware_version: string | null;
+  is_online: boolean;
+  has_data?: boolean;
+  is_stale?: boolean;
+  staleness_seconds?: number;
+  recent_activity_count: number;
+  last_error: string | null;
+}
+
+export interface LatestTelemetryResponse {
+  has_data: boolean;
+  is_stale: boolean;
+  staleness_seconds: number;
+  event: Event | null;
+}
+
+export interface DeviceKeyRotateResponse {
+  device_id: string;
+  device_key: string;
+  message: string;
+}
+
+export interface Event {
+  id: number;
+  device_id: string;
+  session_id: number;
+  internal_session_id?: number;
+  trainee_id: string;
+  event_kind: string;
+  device_timestamp: number | null;
+  server_timestamp: string;
+  device_uptime_ms: number | null;
+  event_name: string | null;
+  alert: string | null;
+  cause: string | null;
+  model_label: string | null;
+  leak_probability: number | null;
+  rms: number | null;
+  gas_delta: number | null;
+  gas_ratio: number | null;
+  temperature: number | null;
+  uv_delta: number | null;
+  wet: boolean | null;
+  firmware_version?: string | null;
+}
+
+export interface Session {
+  id: number;
+  session_id: number;
+  device_id: string;
+  trainee_id: string;
+  started_at: string;
+  ended_at: string | null;
+  trainer_notes?: string | null;
+  session_metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface SessionSummary {
+  id: number;
+  session_id: number;
+  device_session_id: number;
+  device_id: string;
+  trainee_id: string;
+  duration_seconds: number | null;
+  windows: number | null;
+  leak_events: number | null;
+  gas_events: number | null;
+  wet_events: number | null;
+  heat_events: number | null;
+  uv_events: number | null;
+  noise_windows: number | null;
+  max_leak_probability: number | null;
+  firmware_version: string | null;
+  server_timestamp: string;
+}
+
+export interface DashboardOverview {
+  total_sessions: number;
+  total_devices: number;
+  total_trainees: number;
+  total_events: number;
+  recent_sessions_count: number;
+  active_devices_count: number;
+  online_devices_count?: number;
+  offline_devices_count?: number;
+  stale_devices_count?: number;
+  never_reported_count?: number;
+  alert_events_count?: number;
+  recent_ingestion_failures_count?: number;
+  server_utc?: string;
+}
+
+export interface PaginatedResponse<T> {
+  total: number;
+  page: number;
+  page_size: number;
+  items: T[];
+}
+
+export interface DashboardAlert {
+  id: number;
+  device_id: string;
+  trainee_id: string;
+  timestamp: string;
+  alert: string;
+  cause: string;
+  details: {
+    event_name?: string;
+    model_label?: string;
+    leak_probability?: number;
+    rms?: number;
+    gas_delta?: number;
+  };
+}

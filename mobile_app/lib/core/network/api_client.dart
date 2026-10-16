@@ -8,6 +8,8 @@ import '../storage/secure_storage_service.dart';
 class ApiClient {
   late final Dio _dio;
   final SecureStorageService _secureStorage;
+  void Function()? onUnauthorized;
+  Future<String?>? _refreshFuture;
 
   ApiClient({String? baseUrl, SecureStorageService? secureStorage})
     : _secureStorage = secureStorage ?? SecureStorageService() {
@@ -32,24 +34,46 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await _secureStorage.getAuthToken();
-          if (token != null) {
+          if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
         onError: (error, handler) async {
-          // Handle 401 and try token refresh
+          final path = error.requestOptions.path;
+          final isAuthEndpoint = path.contains('/auth/login') ||
+              path.contains('/auth/refresh') ||
+              path.contains('/auth/logout');
+
+          // Never attempt token refresh on authentication endpoints themselves
+          if (isAuthEndpoint) {
+            if (error.response?.statusCode == 401) {
+              await _secureStorage.clearAuthToken();
+              onUnauthorized?.call();
+            }
+            return handler.next(error);
+          }
+
+          // Handle 401 on regular endpoints
           if (error.response?.statusCode == 401) {
             try {
-              await _refreshToken();
-              // Retry the original request
-              final response = await _dio.fetch(error.requestOptions);
-              return handler.resolve(response);
-            } catch (e) {
-              // Refresh failed, clear token and proceed with error
-              await _secureStorage.clearAuthToken();
+              final newToken = await _refreshToken();
+              if (newToken != null && newToken.isNotEmpty) {
+                // Retry the original request with the renewed token
+                final options = error.requestOptions;
+                options.headers['Authorization'] = 'Bearer $newToken';
+                final response = await _dio.fetch(options);
+                return handler.resolve(response);
+              }
+            } catch (_) {
+              // Refresh failed
             }
+
+            // Refresh failed or returned null — clear token and broadcast logout
+            await _secureStorage.clearAuthToken();
+            onUnauthorized?.call();
           }
+
           return handler.next(error);
         },
       ),
@@ -71,14 +95,50 @@ class ApiClient {
     }
   }
 
-  Future<void> _refreshToken() async {
-    try {
-      final response = await _dio.post('/api/v1/auth/refresh');
-      final newToken = response.data['access_token'];
-      await _secureStorage.saveAuthToken(newToken);
-    } catch (e) {
-      throw AuthenticationException('Token refresh failed');
+  Future<String?> _refreshToken() async {
+    final existingFuture = _refreshFuture;
+    if (existingFuture != null) {
+      return existingFuture;
     }
+
+    final future = () async {
+      try {
+        final currentToken = await _secureStorage.getAuthToken();
+        if (currentToken == null || currentToken.isEmpty) {
+          return null;
+        }
+
+        // Dedicated lightweight Dio client WITHOUT interceptors to avoid recursive 401 loops
+        final refreshDio = Dio(
+          BaseOptions(
+            baseUrl: _dio.options.baseUrl,
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $currentToken',
+            },
+          ),
+        );
+
+        final response = await refreshDio.post('/api/v1/auth/refresh');
+        if (response.statusCode == 200 && response.data != null) {
+          final newToken = response.data['access_token'] as String?;
+          if (newToken != null && newToken.isNotEmpty) {
+            await _secureStorage.saveAuthToken(newToken);
+            return newToken;
+          }
+        }
+        return null;
+      } catch (_) {
+        return null;
+      } finally {
+        _refreshFuture = null;
+      }
+    }();
+
+    _refreshFuture = future;
+    return future;
   }
 
   Future<Response<T>> get<T>(

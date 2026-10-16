@@ -7,10 +7,13 @@ import 'session_repository.dart';
 import 'assessment_repository.dart';
 import 'dashboard_repository.dart';
 import '../models/event.dart';
+import '../models/device.dart';
+import '../models/latest_telemetry.dart';
 import '../models/session.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/storage/local_database.dart';
+import '../../core/config/app_config.dart';
 
 // API Client
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -95,6 +98,60 @@ final devicesProvider = FutureProvider.autoDispose((ref) async {
   return await deviceRepo.getDevices();
 });
 
+// Device Status Provider
+// Resolves status for currently selected device or falls back to 'SIH-DEV-01'.
+final deviceStatusProvider =
+    FutureProvider.autoDispose<DeviceStatus>((ref) async {
+  final deviceRepo = ref.watch(deviceRepositoryProvider);
+  final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
+  final deviceId = selectedDeviceId ?? 'SIH-DEV-01';
+  return await deviceRepo.getDeviceStatus(deviceId);
+});
+
+// Latest Telemetry Provider
+// Fetches /telemetry/latest for the currently selected device or 'SIH-DEV-01'.
+final latestTelemetryProvider =
+    FutureProvider.autoDispose<LatestTelemetry>((ref) async {
+  final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
+  final deviceId = selectedDeviceId ?? 'SIH-DEV-01';
+  final repo = ref.watch(deviceRepositoryProvider);
+  return await repo.getLatestTelemetry(deviceId);
+});
+
+
+// Backend URL Provider
+// Reads the persisted URL from SecureStorage; falls back to AppConfig default.
+// Use backendUrlProvider.notifier to persist a new URL:
+//   ref.read(backendUrlProvider.notifier).setUrl(newUrl)
+final backendUrlProvider =
+    AsyncNotifierProvider<BackendUrlNotifier, String>(BackendUrlNotifier.new);
+
+class BackendUrlNotifier extends AsyncNotifier<String> {
+  @override
+  Future<String> build() async {
+    final storage = ref.watch(secureStorageProvider);
+    final saved = await storage.getApiBaseUrl();
+    final url = saved ?? AppConfig.defaultApiBaseUrl;
+    // Apply to the Dio client immediately on startup.
+    ref.read(apiClientProvider).updateBaseUrl(url);
+    return url;
+  }
+
+  Future<void> setUrl(String newUrl) async {
+    final storage = ref.read(secureStorageProvider);
+    await storage.saveApiBaseUrl(newUrl);
+    ref.read(apiClientProvider).updateBaseUrl(newUrl);
+    state = AsyncData(newUrl);
+  }
+
+  Future<void> resetToDefault() async {
+    final storage = ref.read(secureStorageProvider);
+    await storage.saveApiBaseUrl(AppConfig.defaultApiBaseUrl);
+    ref.read(apiClientProvider).updateBaseUrl(AppConfig.defaultApiBaseUrl);
+    state = AsyncData(AppConfig.defaultApiBaseUrl);
+  }
+}
+
 // Device Events Provider
 final deviceEventsProvider =
     FutureProvider.autoDispose.family<List<Event>, String>((ref, deviceId) async {
@@ -151,7 +208,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState.error(e.toString());
     }
   }
+
+  void handleUnauthorized() {
+    if (state.isAuthenticated) {
+      state = AuthState.initial();
+    }
+  }
 }
+
+// Unauthorized Handler Setup
+// Breaks the circular dependency by setting up the callback separately
+final unauthorizedHandlerProvider = Provider<void>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  final authNotifier = ref.watch(authStateProvider.notifier);
+  apiClient.onUnauthorized = authNotifier.handleUnauthorized;
+});
 
 class AuthState {
   final bool isAuthenticated;

@@ -9,10 +9,14 @@ import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/industrial_card.dart';
 import '../../../shared/widgets/status_pill.dart';
 import '../../../shared/widgets/metric_readout.dart';
+import '../../../shared/widgets/connectivity_banner.dart';
+import '../../../shared/widgets/sahai_logo.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/pulsing_beacon.dart';
 import '../../../shared/motion/tactile_pressable.dart';
+import '../../../shared/motion/acoustic_hero_widget.dart';
 import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../devices/screens/device_list_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../inspection/screens/inspection_screen.dart';
 import '../../sessions/screens/session_list_screen.dart';
@@ -57,6 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final screens = [
       _HomeTab(onSwitchTab: _onDestinationSelected),
+      const DeviceListScreen(),
       const _InspectTab(),
       const _HistoryTab(),
       const _SettingsTab(),
@@ -64,29 +69,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onDestinationSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Overview',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sensors_outlined),
-            selectedIcon: Icon(Icons.sensors_rounded),
-            label: 'Live Inspect',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history_rounded),
-            label: 'Sessions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.tune_outlined),
-            selectedIcon: Icon(Icons.tune_rounded),
-            label: 'Settings',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ConnectivityBanner(),
+          NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onDestinationSelected,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard_rounded),
+                label: 'Overview',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.hub_outlined),
+                selectedIcon: Icon(Icons.hub_rounded),
+                label: 'Devices',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.sensors_outlined),
+                selectedIcon: Icon(Icons.sensors_rounded),
+                label: 'Inspect',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history_rounded),
+                label: 'Sessions',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.tune_outlined),
+                selectedIcon: Icon(Icons.tune_rounded),
+                label: 'Settings',
+              ),
+            ],
           ),
         ],
       ),
@@ -115,41 +131,34 @@ class _HomeTab extends ConsumerWidget {
     final overviewAsync = ref.watch(dashboardOverviewProvider);
     final activityAsync = ref.watch(dashboardRecentActivityProvider);
     final deviceStatusAsync = ref.watch(deviceStatusProvider);
+    final latestTelemetryAsync = ref.watch(latestTelemetryProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.darkSurfaceElevated
-                    : AppColors.lightBurntOrange,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.sensors_rounded,
-                size: 20,
-                color: AppColors.burntOrange,
-              ),
+            const SahaiLogo(
+              size: 28,
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'NAADYANTRA',
-                  style: TextStyle(
+                Text(
+                  'HAZGUARD',
+                  style: AppTypography.spaceGrotesk(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.carbon,
+                    letterSpacing: 1.2,
                   ),
                 ),
                 Text(
                   'DIAGNOSTIC WORKSTATION',
-                  style: TextStyle(
+                  style: AppTypography.inter(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -170,6 +179,7 @@ class _HomeTab extends ConsumerWidget {
               ref.invalidate(dashboardOverviewProvider);
               ref.invalidate(dashboardRecentActivityProvider);
               ref.invalidate(deviceStatusProvider);
+              ref.invalidate(latestTelemetryProvider);
             },
           ),
           IconButton(
@@ -190,20 +200,21 @@ class _HomeTab extends ConsumerWidget {
             ref.invalidate(dashboardOverviewProvider);
             ref.invalidate(dashboardRecentActivityProvider);
             ref.invalidate(deviceStatusProvider);
+            ref.invalidate(latestTelemetryProvider);
           },
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
-              // ── Greeting Banner Card ──
+              // ── Greeting Banner ──
               StaggeredEntrance(
                 index: 0,
                 child: IndustrialCard(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: isDark
                               ? AppColors.darkSurfaceElevated
@@ -219,15 +230,15 @@ class _HomeTab extends ConsumerWidget {
                         child: Center(
                           child: Text(
                             (authState.username ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 20,
+                            style: AppTypography.spaceGrotesk(
+                              fontSize: 18,
                               fontWeight: FontWeight.w800,
                               color: AppColors.burntOrange,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,8 +248,13 @@ class _HomeTab extends ConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     'Welcome, ${authState.username ?? "Operator"}',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                    style: AppTypography.spaceGrotesk(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark
+                                          ? AppColors.darkTextPrimary
+                                          : AppColors.carbon,
+                                    ),
                                   ),
                                 ),
                                 const StatusPill(
@@ -247,10 +263,15 @@ class _HomeTab extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(
                               'Acoustic Pipeline & Valve Inspection Aid',
-                              style: theme.textTheme.bodySmall,
+                              style: AppTypography.inter(
+                                fontSize: 11,
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.warmGraphite,
+                              ),
                             ),
                           ],
                         ),
@@ -260,7 +281,44 @@ class _HomeTab extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              // ── ACOUSTIC HERO — waveform driven by real telemetry ──
+              StaggeredEntrance(
+                index: 1,
+                child: IndustrialCard(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  child: latestTelemetryAsync.when(
+                    data: (telemetry) {
+                      final rms = telemetry.event?.rms;
+                      // Normalize RMS: ESP32 acoustic range 0–4096 ADC
+                      final normalizedRms =
+                          rms != null ? (rms / 4096.0).clamp(0.0, 1.0) : null;
+                      final isLive = telemetry.isLive;
+                      return AcousticHeroWidget(
+                        isLive: isLive,
+                        rmsValue: normalizedRms,
+                        dataLabel: rms != null
+                            ? '${rms.toStringAsFixed(0)} ADC RMS'
+                            : null,
+                        statusLabel: isLive
+                            ? 'MONITORING ACTIVE'
+                            : telemetry.hasData
+                                ? 'LAST SESSION: ${telemetry.stalenessLabel.toUpperCase()}'
+                                : 'AWAITING SESSION',
+                      );
+                    },
+                    loading: () => const AcousticHeroWidget(
+                      isLive: false,
+                      statusLabel: 'LOADING TELEMETRY...',
+                    ),
+                    error: (err, stack) => const AcousticHeroWidget(
+                      isLive: false,
+                      statusLabel: 'BACKEND UNREACHABLE',
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 4),
 
               // ── Primary Device Status Card (REAL data from deviceStatusProvider) ──
               StaggeredEntrance(
@@ -450,7 +508,7 @@ class _HomeTab extends ConsumerWidget {
                               value: '${overview.totalSessions}',
                               unit: 'runs',
                               icon: Icons.assignment_outlined,
-                              onTap: () => onSwitchTab(2),
+                              onTap: () => onSwitchTab(3),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -471,7 +529,7 @@ class _HomeTab extends ConsumerWidget {
                               value: '${overview.totalEvents}',
                               unit: 'logged',
                               icon: Icons.timeline_outlined,
-                              onTap: () => onSwitchTab(1),
+                              onTap: () => onSwitchTab(4),
                             ),
                           ),
                         ],
@@ -520,7 +578,7 @@ class _HomeTab extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
               // ── Workflow Actions ──
               StaggeredEntrance(
@@ -532,7 +590,7 @@ class _HomeTab extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         'WORKFLOW ACTIONS',
-                        style: TextStyle(
+                        style: AppTypography.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.0,
@@ -546,7 +604,7 @@ class _HomeTab extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: TactilePressable(
-                            onTap: () => onSwitchTab(1),
+                            onTap: () => onSwitchTab(2),
                             child: IndustrialCard(
                               padding: const EdgeInsets.all(16),
                               child: Column(
@@ -589,7 +647,7 @@ class _HomeTab extends ConsumerWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: TactilePressable(
-                            onTap: () => onSwitchTab(2),
+                            onTap: () => onSwitchTab(3),
                             child: IndustrialCard(
                               padding: const EdgeInsets.all(16),
                               child: Column(
@@ -632,6 +690,63 @@ class _HomeTab extends ConsumerWidget {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    TactilePressable(
+                      onTap: () => context.push('/events'),
+                      child: IndustrialCard(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.darkSurfaceElevated
+                                    : AppColors.softSand.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.timeline_rounded,
+                                color: AppColors.darkBurntOrange,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Event Timeline',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'View diagnostic event history',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.warmGraphite,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.warmGraphite,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     TactilePressable(
@@ -701,7 +816,7 @@ class _HomeTab extends ConsumerWidget {
                   title: 'Recent Diagnostic Events',
                   subtitle: 'Latest recorded telemetry from backend',
                   trailing: TextButton(
-                    onPressed: () => onSwitchTab(2),
+                    onPressed: () => onSwitchTab(4),
                     child: const Text('View All'),
                   ),
                   child: activityAsync.when(

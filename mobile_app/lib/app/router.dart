@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../shared/services/providers.dart';
 import '../features/authentication/screens/login_screen.dart';
+import '../features/authentication/screens/splash_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/devices/screens/device_details_screen.dart';
+import '../features/devices/screens/device_list_screen.dart';
 import '../features/sessions/screens/session_list_screen.dart';
 import '../features/sessions/screens/session_detail_screen.dart';
+import '../features/events/screens/events_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
 
 import '../features/assessments/screens/assessment_list_screen.dart';
@@ -20,17 +23,25 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) {
-      if (!authState.isAuthenticated && state.uri.toString() != '/login') {
+      final path = state.uri.toString();
+      // Let splash handle its own auth-check navigation.
+      if (path == '/splash') return null;
+      if (!authState.isAuthenticated && path != '/login') {
         return '/login';
       }
-      if (authState.isAuthenticated && state.uri.toString() == '/login') {
+      if (authState.isAuthenticated && path == '/login') {
         return '/';
       }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
@@ -40,6 +51,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/devices',
+        name: 'device-list',
+        builder: (context, state) => const DeviceListScreen(),
       ),
       GoRoute(
         path: '/devices/:deviceId',
@@ -61,6 +77,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           final sessionId = int.parse(state.pathParameters['sessionId']!);
           return SessionDetailScreen(sessionId: sessionId);
         },
+      ),
+      GoRoute(
+        path: '/events',
+        name: 'events',
+        builder: (context, state) => const EventsScreen(),
       ),
       GoRoute(
         path: '/settings',

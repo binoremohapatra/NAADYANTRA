@@ -47,10 +47,12 @@ async def list_events(
         query = query.filter(Event.alert == alert)
     
     if date_from:
-        query = query.filter(Event.server_timestamp >= date_from)
+        df = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+        query = query.filter(Event.server_timestamp >= df)
     
     if date_to:
-        query = query.filter(Event.server_timestamp <= date_to)
+        dt = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+        query = query.filter(Event.server_timestamp <= dt)
     
     total = query.count()
     events = query.order_by(Event.server_timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -100,10 +102,12 @@ async def list_summaries(
         query = query.filter(SessionSummary.trainee_id == trainee_id)
     
     if date_from:
-        query = query.filter(SessionSummary.server_timestamp >= date_from)
+        df = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+        query = query.filter(SessionSummary.server_timestamp >= df)
     
     if date_to:
-        query = query.filter(SessionSummary.server_timestamp <= date_to)
+        dt = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+        query = query.filter(SessionSummary.server_timestamp <= dt)
     
     total = query.count()
     summaries = query.order_by(SessionSummary.server_timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()

@@ -46,6 +46,45 @@ class Device {
       'is_active': isActive,
     };
   }
+
+  /// Calculate device connectivity status based on lastSeenAt.
+  ///
+  /// Uses backend DEVICE_ONLINE_THRESHOLD_SECONDS (default: 300s = 5 minutes).
+  /// Status values: 'online', 'offline', 'unknown' (no lastSeenAt).
+  String get connectivityStatus {
+    if (lastSeenAt == null) return 'unknown';
+
+    final now = DateTime.now().toUtc();
+    final difference = now.difference(lastSeenAt!);
+    const onlineThreshold = Duration(seconds: 300); // Match backend default
+
+    if (difference < onlineThreshold) {
+      return 'online';
+    } else {
+      return 'offline';
+    }
+  }
+
+  /// Human-readable staleness duration (e.g., "2m ago", "1h ago").
+  String get stalenessText {
+    if (lastSeenAt == null) return 'Never seen';
+
+    final now = DateTime.now().toUtc();
+    final difference = now.difference(lastSeenAt!);
+
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
+  /// Whether device data is considered stale (offline or unknown).
+  bool get isStale => connectivityStatus != 'online';
 }
 
 class DeviceStatus {

@@ -1,10 +1,21 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  // API Configuration
-  static const String defaultApiBaseUrl = 'https://hazguard.onrender.com';
-  static const String productionApiBaseUrl = 'https://hazguard.onrender.com';
-  static const String localApiBaseUrl = 'http://10.0.2.2:8000';
+  // ── API Backend URLs ──────────────────────────────────────────────────────
+  // Cloud (Render) deployment — production / demo when hardware is on WAN.
+  static const String productionApiBaseUrl = 'https://naadyantra.onrender.com';
+
+  // Alias so existing code keeps compiling; defaults to cloud.
+  static const String defaultApiBaseUrl = productionApiBaseUrl;
+
+  // Android emulator host bridge → localhost:8000 on the host machine.
+  static const String emulatorApiBaseUrl = 'http://10.0.2.2:8000';
+
+  // Physical Android device on the same LAN as the backend.
+  // *** Set this to the actual LAN IP of the machine running FastAPI. ***
+  // Example: 'http://192.168.1.10:8000'
+  // Find it with: ipconfig (Windows) or ip addr (Linux/Mac)
+  static const String localApiBaseUrl = 'http://10.0.2.2:8000'; // override for physical device
 
   // Connection Timeouts
   static const Duration connectTimeout = Duration(seconds: 30);
@@ -24,7 +35,7 @@ class AppConfig {
   static const int maxPageSize = 100;
 
   // App Info
-  static const String appName = 'NAADYANTRA';
+  static const String appName = 'HazGuard';
   static const String appVersion = '1.0.0';
 
   // Debug Mode

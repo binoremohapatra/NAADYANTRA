@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -18,16 +19,13 @@ import '../../../shared/motion/pulsing_beacon.dart';
 import '../../../shared/backgrounds/diagnostic_radar_sweep.dart';
 import '../../../shared/backgrounds/animated_screen_background.dart';
 
-final deviceStatusProvider =
-    FutureProvider.autoDispose<DeviceStatus>((ref) async {
-      final deviceId = ref.watch(selectedDeviceIdProvider) ?? 'SIH-DEV-01';
-      final repo = ref.watch(deviceRepositoryProvider);
-      return await repo.getDeviceStatus(deviceId);
-    });
-
+// deviceStatusProvider and latestTelemetryProvider are in providers.dart.
+// The local recentEventsProvider is preserved for the event-stream list
+// at the bottom of the screen (shows last 10 events).
 final recentEventsProvider =
     FutureProvider.autoDispose<List<Event>>((ref) async {
-      final deviceId = ref.watch(selectedDeviceIdProvider) ?? 'SIH-DEV-01';
+      final deviceId = ref.watch(selectedDeviceIdProvider);
+      if (deviceId == null) return <Event>[];
       final repo = ref.watch(deviceRepositoryProvider);
       return await repo.getDeviceEvents(deviceId, limit: 10);
     });
@@ -828,7 +826,8 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     final rms = isLeak ? 1860.0 : 310.0;
     final gas = isLeak ? 465 : 42;
     final leak = isLeak ? 0.92 : 0.04;
-    final alert = isLeak ? 'CRITICAL' : 'OK';
+    // Firmware valid values: OK | CAUTION | DANGER (not CRITICAL)
+    final alert = isLeak ? 'DANGER' : 'OK';
     final temp = isLeak ? 36.8 : 27.2;
 
     final success = await repo.sendTelemetryLog(
@@ -864,19 +863,156 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     if (mounted) {
       ref.invalidate(deviceStatusProvider);
       ref.invalidate(recentEventsProvider);
+      ref.invalidate(latestTelemetryProvider);
     }
+  }
+
+  // Show a simple dialog to pick which device to inspect.
+  Future<void> _showDevicePicker(BuildContext ctx) async {
+    final devices = ref.read(devicesProvider).valueOrNull?.items ?? [];
+    if (!ctx.mounted) return;
+    final chosen = await showDialog<String>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Select Device'),
+        content: devices.isEmpty
+            ? const Text('No registered devices found.')
+            : SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: devices.length,
+                  itemBuilder: (_, i) {
+                    final d = devices[i];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.sensors,
+                        color: d.isActive
+                            ? AppColors.burntOrange
+                            : AppColors.warmGraphite,
+                      ),
+                      title: Text(d.deviceId),
+                      subtitle: Text(d.name ?? ''),
+                      trailing: d.isActive
+                          ? const StatusPill(
+                              label: 'ACTIVE',
+                              type: StatusType.active)
+                          : null,
+                      onTap: () => Navigator.pop(dialogCtx, d.deviceId),
+                    );
+                  },
+                ),
+              ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (chosen != null) {
+      ref.read(selectedDeviceIdProvider.notifier).state = chosen;
+      _refreshData();
+    }
+  }
+
+  // Show bottom sheet to configure the backend URL.
+  void _showBackendSettings(BuildContext ctx) {
+    final currentUrl =
+        ref.read(backendUrlProvider).valueOrNull ?? AppConfig.defaultApiBaseUrl;
+    final controller = TextEditingController(text: currentUrl);
+    showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+          left: 20, right: 20, top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'BACKEND URL',
+              style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w800,
+                letterSpacing: 1.2, color: AppColors.warmGraphite,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Cloud: https://naadyantra.onrender.com\n'
+              'Emulator: http://10.0.2.2:8000\n'
+              'Physical device: http://<LAN_IP>:8000',
+              style: TextStyle(fontSize: 11, color: AppColors.warmGraphite),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Backend URL',
+                hintText: 'http://192.168.x.x:8000',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      ref
+                          .read(backendUrlProvider.notifier)
+                          .resetToDefault();
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: const Text('Reset to Cloud'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final url = controller.text.trim();
+                      if (url.isNotEmpty) {
+                        ref.read(backendUrlProvider.notifier).setUrl(url);
+                        _refreshData();
+                      }
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
     final deviceStatus = ref.watch(deviceStatusProvider);
     final recentEvents = ref.watch(recentEventsProvider);
+    final latestTelAsync = ref.watch(latestTelemetryProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final events = recentEvents.valueOrNull ?? [];
-    final latest = events.isNotEmpty ? events.first : null;
+    // Derive live reading from the new latestTelemetryProvider.
+    final latestTel = latestTelAsync.valueOrNull;
+    final latest = latestTel?.event;
+    final isStale = latestTel?.isStale ?? true;
+    final stalenessLabel = latestTel?.stalenessLabel ?? 'no data';
 
-    // History for sparkline — real RMS from last 10 events
+    // Sparkline history still comes from the event list (last 10).
+    final events = recentEvents.valueOrNull ?? [];
     final rmsHistory = events
         .where((e) => e.rms != null)
         .map((e) => e.rms!)
@@ -887,22 +1023,115 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     final isLeakCritical =
         latest?.leakProbability != null && latest!.leakProbability! > 0.6;
 
+    // No device selected — show picker prompt instead of the full screen.
+    if (selectedDeviceId == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Row(
+            children: [
+              PulsingBeacon(size: 8, color: AppColors.warmGraphite),
+              SizedBox(width: 8),
+              Text('LIVE DIAGNOSTIC PROBE'),
+            ],
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.sensors_off_rounded,
+                    size: 48, color: AppColors.warmGraphite),
+                const SizedBox(height: 16),
+                const Text(
+                  'No device selected',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Select a registered ESP32 node to begin live inspection.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.warmGraphite),
+                ),
+                const SizedBox(height: 24),
+                IndustrialButton(
+                  label: 'Select Device',
+                  icon: Icons.sensors_rounded,
+                  onPressed: () => _showDevicePicker(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            PulsingBeacon(size: 8, color: AppColors.burntOrange),
-            SizedBox(width: 8),
-            Text('LIVE DIAGNOSTIC PROBE'),
+            PulsingBeacon(
+              size: 8,
+              color: (latestTel?.isLive ?? false)
+                  ? AppColors.alertOk
+                  : AppColors.burntOrange,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                selectedDeviceId,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
+          // Stale badge — shown in AppBar when data is stale
+          if (isStale && latestTel?.hasData == true)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkBurntOrange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                        color: AppColors.darkBurntOrange, width: 0.8),
+                  ),
+                  child: Text(
+                    'STALE · $stalenessLabel',
+                    style: const TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w700,
+                      color: AppColors.darkBurntOrange,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.sensors_rounded),
+            tooltip: 'Change device',
+            onPressed: () => _showDevicePicker(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_ethernet_rounded),
+            tooltip: 'Backend URL',
+            onPressed: () => _showBackendSettings(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Sync Probes',
             onPressed: _refreshData,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       body: AnimatedScreenBackground(
@@ -937,7 +1166,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                   child: _buildNodeHeaderCard(status, isDark),
                 ),
                 loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(), // already shown above
+                error: (_, _) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 12),
 
@@ -951,16 +1180,18 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               // ── Leak Ring + Gas Bar + Sensor Chips ───────────
               StaggeredEntrance(
                 index: 3,
-                child: _buildHazardSection(context, latest, isLeakCritical, isDark),
+                child: _buildHazardSection(
+                    context, latest, isLeakCritical, isDark),
               ),
               const SizedBox(height: 12),
 
-              // ── TEST BENCH Simulator ─────────────────────────
-              StaggeredEntrance(
-                index: 4,
-                child: _buildSimulatorCard(context, isDark),
-              ),
-              const SizedBox(height: 12),
+              // ── TEST BENCH Simulator (DEBUG ONLY) ─────────────
+              if (kDebugMode)
+                StaggeredEntrance(
+                  index: 4,
+                  child: _buildSimulatorCard(context, isDark),
+                ),
+              if (kDebugMode) const SizedBox(height: 12),
 
               // ── Live Event Stream ────────────────────────────
               StaggeredEntrance(
@@ -1522,6 +1753,82 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                 fontStyle: FontStyle.italic,
               ),
             ),
+
+          // ── TinyML Hazard Fusion (hz / hz_c) ──────────────────────────
+          if (latest != null && latest.hasHazardData) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.darkSurfaceElevated
+                    : AppColors.industrialIvory,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.memory_rounded,
+                      size: 13, color: AppColors.warmGraphite),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'TINYML HAZARD FUSION',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.warmGraphite,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Hazard state label
+                  if (latest.hazardStateLabel != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.darkBurntOrange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: AppColors.darkBurntOrange, width: 0.8),
+                      ),
+                      child: Text(
+                        latest.hazardStateLabel!,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.darkBurntOrange,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    )
+                  else
+                    const Text(
+                      'NORMAL',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.alertOk,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  // Confidence score — explicitly NOT labeled as probability
+                  Text(
+                    'CONF: ${latest.hazardConf ?? '--'}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppColors.warmGraphite,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

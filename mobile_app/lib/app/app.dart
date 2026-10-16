@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
+import '../shared/services/providers.dart';
 import 'router.dart';
 
 class App extends ConsumerWidget {
@@ -10,9 +11,11 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    // Initialize unauthorized handler to break circular dependency
+    ref.watch(unauthorizedHandlerProvider);
 
     return MaterialApp.router(
-      title: 'NAADYANTRA',
+      title: 'HazGuard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

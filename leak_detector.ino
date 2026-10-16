@@ -1,10 +1,8 @@
 /*
- * =============================================================================
- *  HazGuard: Multi-Modal Acoustic & Hazardous Environment Diagnostic Firmware
- *  Platform: ESP32-S3 / ESP32 DevKit (Dual-Core 240MHz Xtensa)
- *  SIH 2026 - Problem Statement: PS26244
- *  Firmware Version: 1.1.0
- * =============================================================================
+ * HazGuard: Multi-Modal Acoustic & Hazardous Environment Diagnostic Firmware
+ * Platform: ESP32-S3 / ESP32 DevKit (Dual-Core 240MHz Xtensa)
+ * SIH 2026 - Problem Statement: PS26244
+ * Firmware Version: 1.1.0
  *
  * Architecture:
  *  1. Acoustic Pipeline:
@@ -40,9 +38,6 @@
 #error "Arduino-ESP32 core 3.x required (Boards Manager -> 'esp32 by Espressif Systems' >= 3.0.0)"
 #endif
 
-// =============================================================================
-// 1) SETTINGS - Hardware Configuration & Thresholds
-// =============================================================================
 #define FW_VERSION  "1.1.0"
 
 #define RUN_MODE_DETECT   0
@@ -50,7 +45,9 @@
 #define RUN_MODE          RUN_MODE_DETECT   // Set to RUN_MODE_COLLECT for dataset acquisition
 
 #define USE_EDGE_IMPULSE      0   // 0 = RMS fallback detector (verified buildable), 1 = Edge Impulse TinyML
-#define USE_TINYML_HAZARD_FUSION 1 // 1 = Embedded TinyML multi-sensor hazard fusion (hazard_model.h), 0 = heuristic only
+// ⚠️ DISABLED: hazard_model.h exists but is for distance/temperature/UV wearable sensors, not acoustic leak detection
+// Re-enable only after training or sourcing a compatible acoustic leak detection model
+#define USE_TINYML_HAZARD_FUSION 0 // 1 = Embedded TinyML multi-sensor hazard fusion (hazard_model.h), 0 = heuristic only
 #define USE_REFERENCE_SENSOR  0   // Dual microphone ambient noise subtraction
 #define HAS_GAS_SENSOR        1
 #define HAS_MOISTURE_SENSOR   1
@@ -60,6 +57,7 @@
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
 #define DEBUG_SERIAL          1
+#define VERIFY_TLS_CERT       0   // 0 = Insecure for local testing, 1 = Enable TLS verification for production
 
 #if USE_TINYML_HAZARD_FUSION
 #include "hazard_model.h"
@@ -68,7 +66,11 @@
 // ---- WiFi + Backend ----
 #define WIFI_SSID        "YOUR_WIFI_NAME"
 #define WIFI_PASSWORD    "YOUR_WIFI_PASSWORD"
-#define BACKEND_URL      "http://192.168.1.10:8000"   // Backend API endpoint URL (no trailing slash)
+// ⚠️ CLOUD DEPLOYMENT URL MUST BE VERIFIED BEFORE HARDWARE CONNECTION
+// Currently set to Flutter app's cloud URL; verify actual Render/deployment endpoint
+#define BACKEND_URL      "https://naadyantra.onrender.com"   // Verified active Render backend API endpoint
+// ⚠️ SECURITY: DEVICE_KEY MUST BE ROTATED FOR PRODUCTION
+// Generate a secure key and update backend DEVICE_KEY_HASH accordingly
 #define DEVICE_KEY       "dev-key-123"                // Device authentication secret token
 #define DEVICE_ID        "SIH-DEV-01"
 #define TRAINEE_ID       "T001"    // Default operator trainee identifier
@@ -164,9 +166,6 @@
 #define BUZZER_FREQ_HZ        2700
 #define LOG_QUEUE_LEN         40
 
-// =============================================================================
-// Libraries (settings ke hisaab se)
-// =============================================================================
 #if RUN_MODE == RUN_MODE_DETECT
   #if USE_EDGE_IMPULSE
     #include <YOUR_PROJECT_inferencing.h>   // Edge Impulse model header include
@@ -182,9 +181,6 @@
   #endif
 #endif
 
-// =============================================================================
-// 2) TYPES
-// =============================================================================
 enum Role     : uint8_t { ROLE_NORMAL, ROLE_LEAK, ROLE_NOISE, ROLE_UNCERTAIN };
 enum GasLevel : uint8_t { GAS_OK, GAS_WARN, GAS_ALARM };    // Shared alert severity levels across auxiliary sensors
 enum Alert    : uint8_t { ALERT_OK, ALERT_CAUTION, ALERT_DANGER };
@@ -271,10 +267,6 @@ struct App {
   uint8_t hzConf = 0;
 };
 
-// =============================================================================
-// 3) SAMPLING ENGINE  (timer ISR -> sampler task -> ring buffer)
-// Dedicated FreeRTOS sampler task handles all ADC channels to eliminate hardware contention.
-// =============================================================================
 static uint32_t gFs = 0, gWin = 0, gHop = 0, gRingMask = 0;
 static int16_t *gRing = nullptr, *gRefRing = nullptr;
 static float* gFeat = nullptr;
@@ -420,9 +412,6 @@ static void startSampling() {
 }
 
 #if RUN_MODE == RUN_MODE_COLLECT
-// =============================================================================
-// 4A) COLLECT MODE - Stream raw samples over Serial for Edge Impulse ingestion
-// =============================================================================
 void setup() {
   Serial.begin(921600);
   setupAdc();
@@ -444,9 +433,6 @@ void loop() {
 }
 
 #else
-// =============================================================================
-// 4B) DETECT MODE
-// =============================================================================
 static std::atomic<float> gRmsBase{0.0f};          // Rolling baseline RMS energy reference
 static QueueHandle_t gResultQ = nullptr, gLogQ = nullptr;
 static volatile bool gWifiUp = false;
@@ -709,9 +695,9 @@ static void logEvent(const char* ev, uint32_t now) {
                  strncmp(ev, "session_stop",  12) == 0);
   snprintf(it.trainee, sizeof(it.trainee), "%s", gTrainee);
   const int n = snprintf(it.json, sizeof(it.json),
-    "{\"t\":%lu,\"up\":%lu,\"ev\":\"%s\",\"alert\":\"%s\",\"cause\":\"%s\",\"lbl\":\"%s\","
+    "{\"t\":%lu,\"up\":%lu,\"ev\":\"%s\",\"device\":\"%s\",\"alert\":\"%s\",\"cause\":\"%s\",\"lbl\":\"%s\","
     "\"pl\":%.2f,\"rms\":%.1f,\"gas\":%d,\"gr\":%.2f,\"tc\":%.1f,\"uv\":%d,\"wet\":%d,\"hz\":%d,\"hz_c\":%u}",
-    (unsigned long)nowEpoch(), (unsigned long)(now - app.sess.startMs), ev, alertName(app.alert),
+    (unsigned long)nowEpoch(), (unsigned long)(now - app.sess.startMs), ev, DEVICE_ID, alertName(app.alert),
     causeName(app.cause), app.label, app.pLeak, app.rmsEma, gasDelta(), gasRatio(),
     app.heat.temp, uvDelta(), app.moist.wet.state ? 1 : 0, app.hzState, (unsigned)app.hzConf);
   if (n <= 0 || n >= (int)sizeof(it.json)) return;
@@ -740,8 +726,8 @@ static WiFiClient gPlain;                          // Non-TLS HTTP client transp
 
 static bool sendItem(WiFiClientSecure& secure, LogItem& it) {
   char url[240];
-  const int n = snprintf(url, sizeof(url), "%s/api/log?trainee=%s&session=%lu&kind=%s", BACKEND_URL,
-                         it.trainee, (unsigned long)it.session, it.kind == LOGK_SUMMARY ? "summary" : "event");
+  const int n = snprintf(url, sizeof(url), "%s/api/log?trainee=%s&session=%lu&kind=%s&device=%s", BACKEND_URL,
+                         it.trainee, (unsigned long)it.session, it.kind == LOGK_SUMMARY ? "summary" : "event", DEVICE_ID);
   if (n <= 0 || n >= (int)sizeof(url)) return true;            // Invalid request target URL: discard frame
   const bool https = strncmp(url, "https", 5) == 0;
   WiFiClient& cl = https ? static_cast<WiFiClient&>(secure) : gPlain;
@@ -761,7 +747,23 @@ static void uploaderTask(void*) {
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   WiFiClientSecure secure;
-  secure.setInsecure();              // Insecure TLS context for local bench testing
+#if VERIFY_TLS_CERT
+  // Production: Enable TLS certificate verification
+  // ⚠️ REQUIRES: Arduino-ESP32 2.x or 3.x with certificate bundle support
+  // Option 1: Use Mozilla root CA bundle (requires PlatformIO or embedded bundle file)
+  //   - Add certificate bundle file to project
+  //   - Call secure.setCACertBundle(rootca_crt_bundle_start);
+  // Option 2: Use specific server certificate (simpler, no bundle required)
+  //   - Generate certificate: openssl s_client -showcerts -connect your-backend.com:443 </dev/null | openssl x509 -outform PEM > cert.pem
+  //   - Convert to Arduino-compatible format
+  //   - Call secure.setCACert(cert_pem, cert_pem_len);
+  // Note: setCACertBundle() without bundle data will NOT work
+  secure.setCACertBundle();  // ⚠️ THIS WILL FAIL WITHOUT EMBEDDED BUNDLE
+#else
+  // Development/Testing: Disable TLS verification for local bench testing
+  // ⚠️ SECURITY: Set VERIFY_TLS_CERT to 1 for production deployment
+  secure.setInsecure();
+#endif
   bool ntpStarted = false;
   uint32_t lastKick = millis();
   // Progressive backoff: start at 5s, double on each miss, cap at 60s.
@@ -1213,9 +1215,6 @@ static void fatal(const char* msg) {
   for (;;) { digitalWrite(PIN_LED_RED, !digitalRead(PIN_LED_RED)); delay(200); }
 }
 
-// =============================================================================
-// 5) setup / loop
-// =============================================================================
 void setup() {
   Serial.begin(115200);
   delay(200);

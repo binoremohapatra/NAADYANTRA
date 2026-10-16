@@ -249,7 +249,7 @@ class _HelpScreenState extends State<HelpScreen> {
                       answer:
                           'Navigate to the Settings tab to inspect or update the Backend API URL. '
                           'For local network emulator testing, configure http://10.0.2.2:8000. '
-                          'For production cloud deployments, use https://hazguard.onrender.com.',
+                          'For production cloud deployments, use https://naadyantra.onrender.com.',
                       badge: 'NETWORK',
                     ),
                   ],

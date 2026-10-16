@@ -9,6 +9,7 @@ import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/pulsing_beacon.dart';
 import '../../../shared/backgrounds/ambient_depth_canvas.dart';
 import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/widgets/sahai_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -120,41 +121,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         index: 1,
                         child: Column(
                           children: [
-                            Container(
-                              width: 68,
-                              height: 68,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.darkSurfaceElevated
-                                    : AppColors.lightBurntOrange,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.burntOrange.withValues(
-                                    alpha: 0.35,
-                                  ),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.burntOrange.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.sensors_rounded,
-                                size: 38,
-                                color: AppColors.burntOrange,
-                              ),
+                            const SahaiLogo(
+                              size: 80,
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'NAADYANTRA',
-                              style: theme.textTheme.displayMedium?.copyWith(
+                              'HAZGUARD',
+                              style: AppTypography.spaceGrotesk(
+                                fontSize: 26,
                                 fontWeight: FontWeight.w800,
+                                color: isDark
+                                    ? AppColors.darkTextPrimary
+                                    : AppColors.carbon,
                                 letterSpacing: 1.8,
                               ),
                               textAlign: TextAlign.center,
@@ -162,7 +140,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const SizedBox(height: 6),
                             Text(
                               'Acoustic Diagnostic & Vocational Training Platform',
-                              style: theme.textTheme.bodyMedium?.copyWith(
+                              style: AppTypography.inter(
+                                fontSize: 13,
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.warmGraphite,
                                 letterSpacing: 0.3,
                               ),
                               textAlign: TextAlign.center,

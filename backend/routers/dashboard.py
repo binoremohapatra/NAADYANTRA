@@ -21,23 +21,48 @@ async def dashboard_overview(
     db: Session = Depends(get_db)
 ):
     """Recorded sessions, recent activity, device counts and event counts."""
+    from backend.config import settings
     total_sessions = db.query(DBSession).count()
     total_devices = db.query(Device).count()
     total_trainees = db.query(Trainee).count()
     total_events = db.query(Event).count()
     
     # Recent sessions (last 24 hours)
-    recent_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+    recent_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
     recent_sessions_count = db.query(DBSession).filter(
         DBSession.started_at >= recent_threshold
     ).count()
     
-    # Active devices (seen in last 5 minutes)
-    online_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
-    active_devices_count = db.query(Device).filter(
-        Device.last_seen_at >= online_threshold,
-        Device.is_active == True
-    ).count()
+    # Device status breakdown
+    online_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+        seconds=settings.device_online_threshold_seconds
+    )
+    all_devices = db.query(Device).all()
+    online_devices_count = 0
+    never_reported_count = 0
+    stale_devices_count = 0
+
+    for d in all_devices:
+        ls = d.last_seen_at.replace(tzinfo=None) if (d.last_seen_at and d.last_seen_at.tzinfo) else d.last_seen_at
+        if not ls:
+            never_reported_count += 1
+        elif ls > online_threshold and d.is_active:
+            online_devices_count += 1
+        else:
+            stale_devices_count += 1
+
+    offline_devices_count = total_devices - online_devices_count
+    active_devices_count = sum(1 for d in all_devices if d.is_active)
+
+    # Alerts and ingestion error counts
+    alert_events_count = db.query(Event).filter(Event.alert.in_(["DANGER", "CAUTION"])).count()
+    recent_failures_count = 0
+    try:
+        recent_failures_count = db.query(IngestionError).filter(
+            IngestionError.timestamp >= recent_threshold
+        ).count()
+    except Exception:
+        recent_failures_count = 0
     
     return DashboardOverviewResponse(
         total_sessions=total_sessions,
@@ -45,7 +70,14 @@ async def dashboard_overview(
         total_trainees=total_trainees,
         total_events=total_events,
         recent_sessions_count=recent_sessions_count,
-        active_devices_count=active_devices_count
+        active_devices_count=active_devices_count,
+        online_devices_count=online_devices_count,
+        offline_devices_count=offline_devices_count,
+        stale_devices_count=stale_devices_count,
+        never_reported_count=never_reported_count,
+        alert_events_count=alert_events_count,
+        recent_ingestion_failures_count=recent_failures_count,
+        server_utc=datetime.now(timezone.utc)
     )
 
 
@@ -118,64 +150,53 @@ async def dashboard_trends(
     current_user = Depends(get_current_trainer_or_admin),
     db: Session = Depends(get_db)
 ):
-    """Clearly defined time-bucketed session/event counts."""
-    from_date = datetime.now(timezone.utc) - timedelta(days=days)
+    """Clearly defined time-bucketed session/event counts compatible with SQLite & PostgreSQL."""
+    from_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     
-    # Determine bucket interval
-    if bucket == "hour":
-        interval = "1 hour"
-        date_format = "%Y-%m-%d %H:00:00"
-    elif bucket == "day":
-        interval = "1 day"
-        date_format = "%Y-%m-%d 00:00:00"
-    else:  # week
-        interval = "7 days"
-        date_format = "%Y-%m-%d"  # Simplified
+    is_postgres = False
+    try:
+        if db.bind and db.bind.dialect.name == "postgresql":
+            is_postgres = True
+    except Exception:
+        pass
     
-    # SQLite-specific time bucketing
-    if bucket == "hour":
-        time_buckets = db.query(
-            func.strftime("%Y-%m-%d %H:00:00", Event.server_timestamp).label("bucket"),
-            func.count(DBSession.id).label("session_count"),
-            func.count(Event.id).label("event_count"),
-            func.sum(func.cast(Event.alert == "DANGER", func.integer)).label("alert_count")
-        ).outerjoin(
-            DBSession, Event.internal_session_id == DBSession.id
-        ).filter(
-            Event.server_timestamp >= from_date
-        ).group_by("bucket").order_by("bucket").all()
-    elif bucket == "day":
-        time_buckets = db.query(
-            func.strftime("%Y-%m-%d", Event.server_timestamp).label("bucket"),
-            func.count(DBSession.id).label("session_count"),
-            func.count(Event.id).label("event_count"),
-            func.sum(func.cast(Event.alert == "DANGER", func.integer)).label("alert_count")
-        ).outerjoin(
-            DBSession, Event.internal_session_id == DBSession.id
-        ).filter(
-            Event.server_timestamp >= from_date
-        ).group_by("bucket").order_by("bucket").all()
+    if is_postgres:
+        if bucket == "hour":
+            bucket_expr = func.to_char(func.date_trunc('hour', Event.server_timestamp), 'YYYY-MM-DD HH24:00:00')
+        elif bucket == "day":
+            bucket_expr = func.to_char(func.date_trunc('day', Event.server_timestamp), 'YYYY-MM-DD')
+        else:
+            bucket_expr = func.to_char(func.date_trunc('week', Event.server_timestamp), 'YYYY-IW')
     else:
-        # Week bucket (simplified)
-        time_buckets = db.query(
-            func.strftime("%Y-%W", Event.server_timestamp).label("bucket"),
-            func.count(DBSession.id).label("session_count"),
-            func.count(Event.id).label("event_count"),
-            func.sum(func.cast(Event.alert == "DANGER", func.integer)).label("alert_count")
-        ).outerjoin(
-            DBSession, Event.internal_session_id == DBSession.id
-        ).filter(
-            Event.server_timestamp >= from_date
-        ).group_by("bucket").order_by("bucket").all()
+        if bucket == "hour":
+            bucket_expr = func.strftime("%Y-%m-%d %H:00:00", Event.server_timestamp)
+        elif bucket == "day":
+            bucket_expr = func.strftime("%Y-%m-%d", Event.server_timestamp)
+        else:
+            bucket_expr = func.strftime("%Y-%W", Event.server_timestamp)
+    
+    alert_sum = func.sum(func.case((Event.alert.in_(["DANGER", "CAUTION"]), 1), else_=0))
+    
+    time_buckets = db.query(
+        bucket_expr.label("bucket"),
+        func.count(DBSession.id.distinct()).label("session_count"),
+        func.count(Event.id).label("event_count"),
+        alert_sum.label("alert_count")
+    ).outerjoin(
+        DBSession, Event.internal_session_id == DBSession.id
+    ).filter(
+        Event.server_timestamp >= from_date
+    ).group_by(bucket_expr).order_by(bucket_expr).all()
     
     trends = []
     for bucket_str, session_count, event_count, alert_count in time_buckets:
-        trends.append(DashboardTrendsResponse(
-            time_bucket=bucket_str,
-            session_count=session_count or 0,
-            event_count=event_count or 0,
-            alert_count=alert_count or 0
-        ))
+        if bucket_str:
+            trends.append(DashboardTrendsResponse(
+                time_bucket=str(bucket_str),
+                session_count=session_count or 0,
+                event_count=event_count or 0,
+                alert_count=alert_count or 0
+            ))
     
     return trends
 

@@ -1,0 +1,28 @@
+Haze Guard Flutter — apply the one-time outside-in logo assembly animation
+
+Use Haze_Guard_Logo_Assembly_Inward.gif as the splash intro animation and Haze_Guard_Logo_Static_Transparent.png as the permanent logo.
+
+ANIMATION DIRECTION
+- The logo components begin separated outside their final positions, around the outside of the logo's silhouette.
+- Each component slides INWARD toward its exact original position. The outer pieces arrive first; the inner pieces arrive last and visually complete the central interlocking mark.
+- Use smooth ease-out movement and a very subtle 2% size settle only if it preserves the exact silhouette. No rotation, bouncing, or abrupt movement.
+- End with the exact original logo, hold briefly, and transition through the app's existing launch flow.
+
+ONE-TIME PLAYBACK
+- Play once on a cold app launch/splash only.
+- Never loop or restart during that launch. Do not replay on widget rebuilds, navigation, tab switches, hot state updates, or return to the home screen.
+- At the end, switch to the supplied static transparent PNG so the logo remains still. A new cold launch may play the intro again.
+
+VISUAL RULES
+- No glow, bloom, rays, sonar/radiation rings, particles, sparks, coloured trails, added lines, artificial shadows, or background shapes.
+- Preserve the original source logo pixels, orientation, proportions, and brand colours. Preserve transparent background.
+- Use the GIF only for the launch animation; always use the static PNG for the permanent app logo and normal in-app branding.
+
+IMPLEMENTATION
+- Inspect the provided assets and existing splash/loading code before editing.
+- Register asset paths in pubspec.yaml. Do not assume a standard Flutter Image widget will stop GIF playback automatically; implement reliable one-shot playback or reproduce the same bounded motion with Flutter animation primitives.
+- Ensure the final state matches the static PNG pixel-for-pixel as closely as practical and stays motionless.
+- Preserve existing routing, authentication, state management, and navigation. Do not change unrelated screens or add dependencies unless required.
+- Run flutter pub get and flutter analyze, then report the changed files and verification results.
+
+Expected flow: Haze Guard opens -> separated logo pieces slide inward from outside -> pieces align and lock together cleanly -> static logo holds -> existing app launch flow continues. One intro per cold launch, no loop, no decorative effects.

@@ -18,6 +18,7 @@ async def firmware_log(
     trainee: str = Query(..., alias="trainee"),
     session: int = Query(..., alias="session"),
     kind: str = Query(..., alias="kind"),
+    device: Optional[str] = Query(None, alias="device"),
     x_device_key: str = Header(..., alias="X-Device-Key"),
     payload: dict = None,
     db: Session = Depends(get_db)
@@ -39,8 +40,14 @@ async def firmware_log(
             detail=f"Invalid kind: {kind}. Must be 'event' or 'summary'"
         )
     
-    # Extract device_id from payload or use default
-    device_id = payload.get("device", "UNKNOWN")
+    # Extract device_id from payload, query param, or lookup from existing session
+    device_id = (payload.get("device") if isinstance(payload, dict) else None) or device
+    if not device_id:
+        existing_sess = db.query(DBSession).filter(DBSession.session_id == session).first()
+        if existing_sess and existing_sess.device_id:
+            device_id = existing_sess.device_id
+        else:
+            device_id = "UNKNOWN"
     
     # Authenticate device - first check device-specific credential, then fall back to global
     device_credential = db.query(DeviceCredential).filter(
@@ -74,6 +81,7 @@ async def firmware_log(
             name=device_id,
             firmware_version=payload.get("fw"),
             last_seen_at=datetime.now(timezone.utc),
+            last_telemetry_at=datetime.now(timezone.utc),
             device_metadata={},
             is_active=True
         )
@@ -82,8 +90,9 @@ async def firmware_log(
         db.refresh(device)
         logger.info(f"Auto-registered new device: {device_id}")
     else:
-        # Update last_seen_at and firmware version
+        # Update last_seen_at, last_telemetry_at, and firmware version
         device.last_seen_at = datetime.now(timezone.utc)
+        device.last_telemetry_at = datetime.now(timezone.utc)
         if payload.get("fw"):
             device.firmware_version = payload.get("fw")
         db.commit()

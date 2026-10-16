@@ -1,5 +1,5 @@
 name: mobile_app
-description: "NAADYANTRA - ESP32-based diagnostic sensing and vocational training platform mobile app"
+description: "HazGuard - ESP32-based AI-assisted diagnostic sensing and vocational training platform"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -66,6 +66,9 @@ dependencies:
   # JSON
   json_annotation: ^4.9.0
 
+  # Typography — premium Google Fonts (Space Grotesk, Inter, JetBrains Mono)
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -87,6 +90,10 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/images/Haze_Guard_Logo_Assembly_Inward.gif
+    - assets/images/Haze_Guard_Logo_Static_Transparent.png
+    - assets/icons/Haze_Guard_Logo_Assembly_Inward.gif
+    - assets/icons/Haze_Guard_Logo_Static_Transparent.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

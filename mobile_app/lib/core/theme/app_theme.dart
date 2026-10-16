@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// HazGuard Approved Design System Tokens
 /// Cinematic Light Industrial aesthetic with restrained orange accents.
@@ -33,6 +34,82 @@ class AppColors {
   static const Color darkBorder = Color(0xFF383531);
   static const Color darkTextPrimary = Color(0xFFF5F3EF);
   static const Color darkTextSecondary = Color(0xFFA8A39C);
+}
+
+/// Premium typography token system.
+/// Space Grotesk for display/headings, Inter for body, JetBrains Mono for sensor values.
+class AppTypography {
+  AppTypography._();
+
+  /// Fetches Space Grotesk TextStyle — use for display/headline/title text.
+  static TextStyle spaceGrotesk({
+    double fontSize = 16,
+    FontWeight fontWeight = FontWeight.w400,
+    Color? color,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      GoogleFonts.spaceGrotesk(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+        height: height,
+      );
+
+  /// Fetches Inter TextStyle — use for body, captions, labels.
+  static TextStyle inter({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    Color? color,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      GoogleFonts.inter(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+        height: height,
+      );
+
+  /// Fetches JetBrains Mono TextStyle — use exclusively for sensor values,
+  /// timestamps, device IDs, and technical identifiers.
+  static TextStyle mono({
+    double fontSize = 13,
+    FontWeight fontWeight = FontWeight.w500,
+    Color? color,
+    double? letterSpacing,
+  }) =>
+      GoogleFonts.jetBrainsMono(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing ?? 0.0,
+      );
+}
+
+/// Spacing constants — 4pt base grid.
+class AppSpacing {
+  AppSpacing._();
+  static const double xs = 4.0;
+  static const double sm = 8.0;
+  static const double md = 16.0;
+  static const double lg = 24.0;
+  static const double xl = 32.0;
+  static const double xxl = 48.0;
+}
+
+/// Corner radius constants.
+class AppRadius {
+  AppRadius._();
+  static const double sm = 6.0;
+  static const double md = 10.0;
+  static const double lg = 14.0;
+  static const double xl = 20.0;
+  static const Radius smRadius = Radius.circular(sm);
+  static const Radius mdRadius = Radius.circular(md);
+  static const Radius lgRadius = Radius.circular(lg);
 }
 
 class AppTheme {
@@ -181,7 +258,7 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: const TextTheme(
+      textTheme: GoogleFonts.interTextTheme(const TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w800,
@@ -238,7 +315,7 @@ class AppTheme {
           color: AppColors.carbon,
           letterSpacing: 0.5,
         ),
-      ),
+      )),
     );
   }
 
@@ -368,7 +445,7 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: const TextTheme(
+      textTheme: GoogleFonts.interTextTheme(const TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w800,
@@ -415,7 +492,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: AppColors.darkTextPrimary,
         ),
-      ),
+      )),
     );
   }
 }

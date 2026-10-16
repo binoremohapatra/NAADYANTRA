@@ -47,18 +47,46 @@ class DeviceResponse(BaseModel):
     name: Optional[str]
     firmware_version: Optional[str]
     last_seen_at: Optional[datetime]
+    last_telemetry_at: Optional[datetime] = None
     device_metadata: Dict[str, Any]
     created_at: datetime
     is_active: bool
+    is_online: Optional[bool] = None
 
 
 class DeviceStatusResponse(BaseModel):
     device_id: str
-    last_seen_at: Optional[datetime]
-    firmware_version: Optional[str]
+    is_registered: bool = True
+    is_active: bool = True
     is_online: bool
-    recent_activity_count: int
-    last_error: Optional[str]
+    last_seen_at: Optional[datetime] = None
+    last_telemetry_at: Optional[datetime] = None
+    has_data: bool = False
+    is_stale: bool = True
+    staleness_seconds: int = -1
+    firmware_version: Optional[str] = None
+    recent_activity_count: int = 0
+    last_error: Optional[str] = None
+
+
+class DeviceKeyRotateResponse(BaseModel):
+    device_id: str
+    device_key: str
+    message: str = "Device key rotated successfully. Store this key securely; it will not be shown again."
+
+
+class LatestTelemetryResponse(BaseModel):
+    """Latest telemetry event for a device with explicit freshness metadata.
+
+    has_data=False means no events have ever been ingested for this device.
+    is_stale=True means the newest event is older than stale_after_seconds.
+    staleness_seconds=-1 when has_data=False.
+    event=None when has_data=False.
+    """
+    has_data: bool
+    is_stale: bool
+    staleness_seconds: int   # seconds since server_timestamp; -1 if no data
+    event: Optional["EventResponse"] = None  # forward ref resolved below
 
 
 class DeviceUpdateRequest(BaseModel):
@@ -257,6 +285,13 @@ class DashboardOverviewResponse(BaseModel):
     total_events: int
     recent_sessions_count: int
     active_devices_count: int
+    online_devices_count: int = 0
+    offline_devices_count: int = 0
+    stale_devices_count: int = 0
+    never_reported_count: int = 0
+    alert_events_count: int = 0
+    recent_ingestion_failures_count: int = 0
+    server_utc: Optional[datetime] = None
 
 
 class DashboardRecentActivityItem(BaseModel):

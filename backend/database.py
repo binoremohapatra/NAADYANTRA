@@ -31,6 +31,7 @@ class Device(Base):
     name = Column(String(100))
     firmware_version = Column(String(20))
     last_seen_at = Column(DateTime)
+    last_telemetry_at = Column(DateTime, nullable=True)
     device_metadata = Column(JSON, default={})
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)

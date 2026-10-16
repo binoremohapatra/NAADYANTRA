@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../models/device.dart';
 import '../models/common.dart';
 import '../models/event.dart';
+import '../models/latest_telemetry.dart';
 import '../models/session.dart';
 import '../../core/network/api_client.dart';
 import '../../core/constants/api_constants.dart';
@@ -103,18 +104,31 @@ class DeviceRepository {
       final status = DeviceStatus.fromJson(response.data);
       await _cache.cacheDeviceStatus(deviceId, status.toJson());
       return status;
-    } on NetworkException {
-      if (useCache) {
-        final cachedStatus = await _cache.getCachedDeviceStatus(deviceId);
-        if (cachedStatus != null) {
-          return DeviceStatus.fromJson(cachedStatus);
+    } catch (_) {
+      // If status endpoint returns error (500 or 404), fall back to getDevice metadata
+      try {
+        final device = await getDevice(deviceId, useCache: useCache);
+        final isOnline = device.lastSeenAt != null &&
+            DateTime.now().difference(device.lastSeenAt!).inMinutes < 5;
+        final fallbackStatus = DeviceStatus(
+          deviceId: device.deviceId,
+          lastSeenAt: device.lastSeenAt,
+          firmwareVersion: device.firmwareVersion,
+          isOnline: isOnline,
+          recentActivityCount: 0,
+        );
+        await _cache.cacheDeviceStatus(deviceId, fallbackStatus.toJson());
+        return fallbackStatus;
+      } catch (innerError) {
+        if (useCache) {
+          final cachedStatus = await _cache.getCachedDeviceStatus(deviceId);
+          if (cachedStatus != null) {
+            return DeviceStatus.fromJson(cachedStatus);
+          }
         }
+        if (innerError is AppException) rethrow;
+        throw ServerException('Failed to fetch device status');
       }
-      rethrow;
-    } on AppException {
-      rethrow;
-    } catch (e) {
-      throw ServerException('Failed to fetch device status');
     }
   }
 
@@ -200,6 +214,73 @@ class DeviceRepository {
       rethrow;
     } catch (e) {
       throw ServerException('Failed to fetch device summaries');
+    }
+  }
+
+  /// Fetch the most recent ingested event for [deviceId] with freshness metadata.
+  ///
+  /// Returns [LatestTelemetry] with [hasData]=false when no events exist yet —
+  /// never throws NotFoundException for an empty device.
+  /// Falls back to the most-recent cached event (marked stale) when offline.
+  Future<LatestTelemetry> getLatestTelemetry(
+    String deviceId, {
+    int staleAfterSeconds = 30,
+    bool useCache = true,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.deviceLatestTelemetry(deviceId),
+        queryParameters: <String, dynamic>{
+          'stale_after_seconds': staleAfterSeconds,
+        },
+      );
+      return LatestTelemetry.fromJson(
+          response.data as Map<String, dynamic>);
+    } catch (_) {
+      // If /telemetry/latest endpoint returns 404 (not yet deployed) or errors,
+      // fallback to standard getDeviceEvents(limit: 1) which is supported on all backend versions.
+      try {
+        final events = await getDeviceEvents(deviceId, limit: 1, useCache: useCache);
+        if (events.isNotEmpty) {
+          final event = events.first;
+          final staleness = DateTime.now()
+              .toUtc()
+              .difference(event.serverTimestamp.toUtc())
+              .inSeconds
+              .abs();
+          final isStale = staleness > staleAfterSeconds;
+          return LatestTelemetry(
+            hasData: true,
+            isStale: isStale,
+            stalenessSecs: staleness,
+            event: event,
+          );
+        }
+        return const LatestTelemetry(
+          hasData: false,
+          isStale: true,
+          stalenessSecs: -1,
+        );
+      } catch (innerError) {
+        if (useCache) {
+          final cached =
+              await _cache.getCachedEventsByDeviceId(deviceId, limit: 1);
+          if (cached.isNotEmpty) {
+            final event = Event.fromJson(cached.first);
+            return LatestTelemetry(
+              hasData: true,
+              isStale: true,
+              stalenessSecs: -1,
+              event: event,
+            );
+          }
+        }
+        return const LatestTelemetry(
+          hasData: false,
+          isStale: true,
+          stalenessSecs: -1,
+        );
+      }
     }
   }
 

@@ -22,6 +22,10 @@ class Event {
   final String? firmwareVersion;
   final Map<String, dynamic> rawPayload;
   final String ingestionStatus;
+  // Hazard fusion fields (TinyML) — stored in raw_payload, not first-class DB columns.
+  // These are uncalibrated model outputs, NOT calibrated probabilities.
+  final int? hazardState;   // 0=normal 1=proximity 2=prox_breach 3=gas_buildup 4=overheat
+  final int? hazardConf;    // 0–100 model confidence score (not a probability)
 
   Event({
     required this.id,
@@ -47,6 +51,8 @@ class Event {
     this.firmwareVersion,
     required this.rawPayload,
     required this.ingestionStatus,
+    this.hazardState,
+    this.hazardConf,
   });
 
   bool get hasGasData => gasDelta != null || gasRatio != null;
@@ -54,6 +60,19 @@ class Event {
   bool get hasMoistureData => wet != null;
   bool get hasTemperatureData => temperature != null;
   bool get hasUvData => uvDelta != null;
+  bool get hasHazardData => hazardState != null;
+
+  /// Human-readable label for the hazard fusion state.
+  /// Returns null when hazardState is null or 0 (normal).
+  String? get hazardStateLabel {
+    switch (hazardState) {
+      case 1: return 'PROXIMITY';
+      case 2: return 'PROX BREACH';
+      case 3: return 'GAS BUILDUP';
+      case 4: return 'OVERHEAT';
+      default: return null;
+    }
+  }
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(
@@ -84,7 +103,19 @@ class Event {
       firmwareVersion: json['firmware_version'] as String?,
       rawPayload: json['raw_payload'] as Map<String, dynamic>? ?? {},
       ingestionStatus: json['ingestion_status'] as String? ?? 'accepted',
+      // hz / hz_c are stored in raw_payload; extract with null-safety.
+      hazardState: _intFromPayload(json['raw_payload'], 'hz'),
+      hazardConf: _intFromPayload(json['raw_payload'], 'hz_c'),
     );
+  }
+
+  static int? _intFromPayload(dynamic payload, String key) {
+    if (payload is Map<String, dynamic>) {
+      final v = payload[key];
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -112,6 +143,8 @@ class Event {
       'firmware_version': firmwareVersion,
       'raw_payload': rawPayload,
       'ingestion_status': ingestionStatus,
+      // hz/hz_c are intentionally not round-tripped through toJson;
+      // they are always re-derived from raw_payload on deserialization.
     };
   }
 }

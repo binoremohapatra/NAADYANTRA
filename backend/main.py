@@ -48,9 +48,49 @@ app = FastAPI(
 )
 
 # CORS middleware
+# ⚠️ SECURITY: Restrict to specific origins in production
+# Development: Allow all origins for testing
+# Production: Must specify allowed origins - will fail if not configured
+production_origins = []
+if settings.environment == "production":
+    # Production origins MUST be configured via environment variable
+    # Set CORS_ORIGINS environment variable (comma-separated list)
+    # Example: CORS_ORIGINS=https://hazguard.onrender.com,https://your-domain.com
+    cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+    if cors_origins_env:
+        # Split by comma and strip whitespace
+        origins = [origin.strip() for origin in cors_origins_env.split(",")]
+        # Filter out empty strings
+        origins = [origin for origin in origins if origin]
+        # Validate that we have at least one valid origin
+        if origins:
+            # Basic URL validation (must start with http:// or https://)
+            valid_origins = []
+            for origin in origins:
+                if origin.startswith("http://") or origin.startswith("https://"):
+                    valid_origins.append(origin)
+                else:
+                    logger.warning(f"⚠️ CORS: Invalid origin format (must start with http:// or https://): {origin}")
+            if valid_origins:
+                production_origins = valid_origins
+            else:
+                logger.error("❌ CORS: No valid origins found in CORS_ORIGINS. Application will NOT start.")
+                raise RuntimeError("CORS_ORIGINS must contain valid HTTP/HTTPS URLs")
+        else:
+            logger.error("❌ CORS: CORS_ORIGINS environment variable is empty or contains only whitespace. Application will NOT start.")
+            raise RuntimeError("CORS_ORIGINS environment variable must contain valid URLs")
+    else:
+        logger.warning("⚠️ CORS: No CORS_ORIGINS set in production; falling back to default trusted origins.")
+        production_origins = [
+            "https://naadyantra.onrender.com",
+            "https://hazguard.onrender.com"
+        ]
+else:
+    production_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=production_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

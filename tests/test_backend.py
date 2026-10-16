@@ -391,12 +391,34 @@ class TestDeviceManagement:
         assert data["device_id"] == "TEST-DEV-01"
 
     def test_get_device_status(self, client, auth_headers, test_device):
-        """Test getting device status."""
+        """Test getting device status with canonical freshness fields."""
         response = client.get("/api/v1/devices/TEST-DEV-01/status", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
-        assert "device_id" in data
+        assert data["device_id"] == "TEST-DEV-01"
         assert "is_online" in data
+        assert "is_registered" in data
+        assert "is_active" in data
+        assert "has_data" in data
+        assert "is_stale" in data
+        assert "staleness_seconds" in data
+
+    def test_rotate_device_key(self, client, auth_headers, test_device):
+        """Test admin device key rotation issuing a new one-time key."""
+        response = client.post("/api/v1/devices/TEST-DEV-01/rotate-key", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["device_id"] == "TEST-DEV-01"
+        assert "device_key" in data
+        assert len(data["device_key"]) > 16
+
+    def test_deactivate_device(self, client, auth_headers, test_device):
+        """Test admin device deactivation."""
+        response = client.delete("/api/v1/devices/TEST-DEV-01", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_active"] is False
+
 
 
 class TestSessionManagement:

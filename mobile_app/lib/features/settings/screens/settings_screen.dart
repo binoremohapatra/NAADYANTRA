@@ -8,6 +8,7 @@ import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/industrial_card.dart';
 import '../../../shared/widgets/industrial_button.dart';
 import '../../../shared/widgets/status_pill.dart';
+import '../../../shared/widgets/sahai_logo.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/backgrounds/animated_screen_background.dart';
 
@@ -244,8 +245,10 @@ class SettingsScreen extends ConsumerWidget {
                 Center(
                   child: Column(
                     children: [
+                      const SahaiLogo(size: 32),
+                      const SizedBox(height: 10),
                       Text(
-                        'NAADYANTRA FIELD DIAGNOSTICS PLATFORM',
+                        'SAHAI FIELD DIAGNOSTICS PLATFORM',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
