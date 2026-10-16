@@ -748,20 +748,23 @@ static void uploaderTask(void*) {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   WiFiClientSecure secure;
 #if VERIFY_TLS_CERT
-  // Production: Enable TLS certificate verification
-  // ⚠️ REQUIRES: Arduino-ESP32 2.x or 3.x with certificate bundle support
-  // Option 1: Use Mozilla root CA bundle (requires PlatformIO or embedded bundle file)
-  //   - Add certificate bundle file to project
-  //   - Call secure.setCACertBundle(rootca_crt_bundle_start);
-  // Option 2: Use specific server certificate (simpler, no bundle required)
-  //   - Generate certificate: openssl s_client -showcerts -connect your-backend.com:443 </dev/null | openssl x509 -outform PEM > cert.pem
-  //   - Convert to Arduino-compatible format
-  //   - Call secure.setCACert(cert_pem, cert_pem_len);
-  // Note: setCACertBundle() without bundle data will NOT work
-  secure.setCACertBundle();  // ⚠️ THIS WILL FAIL WITHOUT EMBEDDED BUNDLE
+  // Verified Root CA for https://naadyantra.onrender.com (GlobalSign ECC Root CA - R4 / GTS WE1 chain)
+  static const char RENDER_ROOT_CA[] PROGMEM =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIB3DCCAYOgAwIBAgINAgPlfvU/k/2lCSGypjAKBggqhkjOPQQDAjBQMSQwIgYD\n"
+    "VQQLExtHbG9iYWxTaWduIEVDQyBSb290IENBIC0gUjQxEzARBgNVBAoTCkdsb2Jh\n"
+    "bFNpZ24xEzARBgNVBAMTCkdsb2JhbFNpZ24wHhcNMTIxMTEzMDAwMDAwWhcNMzgw\n"
+    "MTE5MDMxNDA3WjBQMSQwIgYDVQQLExtHbG9iYWxTaWduIEVDQyBSb290IENBIC0g\n"
+    "UjQxEzARBgNVBAoTCkdsb2JhbFNpZ24xEzARBgNVBAMTCkdsb2JhbFNpZ24wWTAT\n"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAS4xnnTj2wlDp8uORkcA6SumuU5BwkWymOx\n"
+    "uYb4ilfBV85C+nOh92VC/x7BALJucw7/xyHlGKSq2XE/qNS5zowdo0IwQDAOBgNV\n"
+    "HQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUVLB7rUW44kB/\n"
+    "+wpu+74zyTyjhNUwCgYIKoZIzj0EAwIDRwAwRAIgIk90crlgr/HmnKAWBVBfw147\n"
+    "bmF0774BxL4YSFlhgjICICadVGNA3jdgUM/I2O2dgq43mLyjj0xMqTQrbO/7lZsm\n"
+    "-----END CERTIFICATE-----\n";
+  secure.setCACert(RENDER_ROOT_CA);
 #else
-  // Development/Testing: Disable TLS verification for local bench testing
-  // ⚠️ SECURITY: Set VERIFY_TLS_CERT to 1 for production deployment
+  // Development/Testing bench mode
   secure.setInsecure();
 #endif
   bool ntpStarted = false;
