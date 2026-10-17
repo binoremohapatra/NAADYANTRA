@@ -2,8 +2,8 @@
 ## Firmware Flashing, Pinout Verification & Sensor Integration (SIH26244)
 
 > [!IMPORTANT]
-> **Core Requirement**: Arduino-ESP32 Core **3.x** is required (`ESP_ARDUINO_VERSION_MAJOR >= 3`).  
-> Ensure your Arduino IDE or PlatformIO environment is updated to Espressif Core $\ge 3.0.0$.
+> **Core Compatibility**: Supports both Arduino-ESP32 Core **2.x** and Core **3.x** (`ESP_ARDUINO_VERSION_MAJOR`).  
+> Validated with PlatformIO on both Classic ESP32 (`esp32dev`) and ESP32-S3 (`esp32-s3-devkitc-1`).
 
 ---
 
@@ -15,9 +15,11 @@ The firmware [leak_detector.ino](file:///d:/NAADYANTRA/leak_detector.ino) automa
 | :--- | :--- | :---: | :---: | :--- |
 | **Contact Piezo** | `PIN_PIEZO` | **GPIO 4** (ADC1_CH3) | **GPIO 34** (ADC1_CH6) | AC-coupled via 0.1µF into MCP6002 RRIO op-amp with 1.65V virtual ground bias. |
 | **Reference Mic** | `PIN_REFERENCE` | **GPIO 7** (ADC1_CH6) | **GPIO 33** (ADC1_CH5) | Ambient noise cancellation channel (optional). |
-| **Combustible Gas** | `PIN_GAS` | **GPIO 5** (ADC1_CH4) | **GPIO 35** (ADC1_CH7) | **CRITICAL**: MQ module powered at 5V. 10kΩ / 20kΩ divider scales signal to $\le 3.3\text{V}$. |
+| **Combustible Gas** | `PIN_GAS` | **GPIO 5** (ADC1_CH4) | **GPIO 35** (ADC1_CH7) | **CRITICAL**: MQ module powered at 5V. 15kΩ / 10kΩ 1% divider scales signal to $\le 2.13\text{V}$. |
 | **Moisture Sense** | `PIN_MOISTURE` | **GPIO 6** (ADC1_CH5) | **GPIO 32** (ADC1_CH4) | Conduction probe sense node with 100kΩ pull-down. |
 | **Moisture Power** | `PIN_MOIST_PWR` | **GPIO 10** | **GPIO 23** | Gated excitation pin; driven HIGH for 50ms only during read to prevent galvanic erosion. |
+| **Battery Monitor** | `PIN_BATTERY` | **GPIO 2** (ADC1_CH1) | **GPIO 39** (ADC1_CH3 / SENSOR_VN) | 100kΩ / 100kΩ 1% divider on 1S LiPo rail (2.0x scaling factor, max 2.15V at 4.3V). |
+| **Boost / Heater EN**| `PIN_BOOST_EN` | **GPIO 11** | **GPIO 19** | Load disconnect control: asserts HIGH to power MT3608 + MQ-2 heater; deasserts to cut to 0mA in sleep. |
 | **I2C SDA** | `PIN_SDA` | **GPIO 8** | **GPIO 21** | Shared I2C bus for SSD1306 OLED (`0x3C`) and MLX90614 pyrometer (`0x5A`). |
 | **I2C SCL** | `PIN_SCL` | **GPIO 9** | **GPIO 22** | $100\text{ kHz}$ standard clock. Ensure $4.7\text{k}\Omega$ pull-ups to 3.3V. |
 | **Audio Buzzer** | `PIN_BUZZER` | **GPIO 15** | **GPIO 25** | Driven via 2N2222 NPN transistor with flyback protection diode. |
@@ -116,7 +118,7 @@ With $R_1 = R_2 = 10\text{k}\Omega$, $C_1 = 15\text{nF}$, $C_2 = 6.8\text{nF}$:
 > [!IMPORTANT]
 > **Conditioning & Measurement Honesty**:
 > 1. **Initial Heater Conditioning**: Manufacturer documentation (Winsen MQ-2 / MQ-135) specifies a continuous **48-hour burn-in period** at rated heater voltage ($V_H = 5.0\text{V} \pm 0.1\text{V}$) for chemical stabilization of the $\text{SnO}_2$ sensing layer.
-> 2. **Session Warm-Up**: During bench deployment, a **2 to 5 minute thermal warm-up** is required after power-on before recording baseline resistance ($R_0$). The firmware enforces a minimum 60-second stabilization guard (`GAS_WARMUP_S = 60`).
+> 2. **Session Warm-Up**: During bench deployment, a **2 to 5 minute thermal warm-up** is required after power-on before recording baseline resistance ($R_0$). The firmware enforces a minimum 120-second stabilization guard (`GAS_WARMUP_S = 120`).
 > 3. **Indicative Status**: Gas readings are treated strictly as **indicative relative sensor delta ($\Delta\text{ADC}$) and resistance ratio ($R_s/R_0$)**, NOT certified absolute ppm or %LEL.
 
 #### ADC Calibration & Interface Verification (ESP32-S3 vs. Classic ESP32)

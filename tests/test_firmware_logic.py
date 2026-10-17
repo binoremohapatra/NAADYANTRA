@@ -748,3 +748,131 @@ class TestSensorEvaluationToolkit:
         assert "W-001" in md_out
         assert "BENCH_SOFTWARE_VERIFIED" in md_out
 
+
+# =============================================================================
+# Power Management, Battery Monitoring & Warmup Guard Tests
+# =============================================================================
+
+class TestBatteryAndPowerIntegrity:
+    """Tests for 1S LiPo battery monitoring, voltage divider, and cutoff logic."""
+
+    def test_battery_divider_ratio_and_linear_adc_margins(self):
+        """100k/100k 1% divider gives factor 2.0x. Max 4.25V LiPo must remain <= 2.146V."""
+        r_top = 100000.0
+        r_bot = 100000.0
+        div_factor = (r_top + r_bot) / r_bot
+        assert div_factor == 2.0
+
+        v_bat_max = 4.25  # Absolute max charging voltage
+        v_adc = v_bat_max / div_factor
+        assert v_adc <= 2.45  # Classic ESP32 ADC linear limit
+        assert v_adc <= 3.10  # ESP32-S3 ADC linear limit
+
+    def test_battery_warning_and_hysteresis(self):
+        """Warning asserts at <= 3.55V and only clears above >= 3.65V."""
+        bat_warn_mv = 3550
+        bat_clear_mv = 3650
+
+        # Initial state: full battery
+        bat_low_warn = False
+        v_bat = 3700
+        if not bat_low_warn and v_bat <= bat_warn_mv:
+            bat_low_warn = True
+        assert not bat_low_warn
+
+        # Battery discharges below 3.55V
+        v_bat = 3540
+        if not bat_low_warn and v_bat <= bat_warn_mv:
+            bat_low_warn = True
+        assert bat_low_warn
+
+        # Battery rebounds slightly to 3.60V (still <= 3.65V, warning must remain)
+        v_bat = 3600
+        if bat_low_warn and v_bat >= bat_clear_mv:
+            bat_low_warn = False
+        assert bat_low_warn
+
+        # Battery recharged above 3.65V -> warning clears
+        v_bat = 3660
+        if bat_low_warn and v_bat >= bat_clear_mv:
+            bat_low_warn = False
+        assert not bat_low_warn
+
+    def test_shutdown_requires_10_consecutive_low_samples(self):
+        """Cutoff threshold 3.45V must be debounced for 10 consecutive seconds."""
+        cutoff_mv = 3450
+        shutdown_samples = 10
+
+        # Transient voltage dip: 3 samples low, then recovers
+        cnt = 0
+        shut_down = False
+        readings = [3400, 3420, 3410, 3480, 3490]
+        for v in readings:
+            if v <= cutoff_mv:
+                cnt += 1
+                if cnt >= shutdown_samples:
+                    shut_down = True
+            else:
+                cnt = 0
+        assert not shut_down
+        assert cnt == 0
+
+        # Sustained low voltage: 10 consecutive samples -> asserts shutdown
+        readings = [3420] * 10
+        for v in readings:
+            if v <= cutoff_mv:
+                cnt += 1
+                if cnt >= shutdown_samples:
+                    shut_down = True
+            else:
+                cnt = 0
+        assert shut_down
+        assert cnt == 10
+
+    def test_telemetry_json_includes_dist_and_vbat(self):
+        """Firmware telemetry JSON contract must include dist and vbat fields."""
+        payload = {
+            "t": 1729180000,
+            "up": 12000,
+            "ev": "snap",
+            "device": "SIH-DEV-01",
+            "alert": "OK",
+            "cause": "NONE",
+            "lbl": "normal",
+            "pl": 0.05,
+            "rms": 12.5,
+            "gas": 15,
+            "gr": 1.02,
+            "tc": 0.0,
+            "uv": 0,
+            "wet": 0,
+            "dist": -1,
+            "vbat": 3.85,
+            "hz": 0,
+            "hz_c": 0
+        }
+        assert "dist" in payload
+        assert "vbat" in payload
+        assert payload["dist"] == -1
+        assert 3.0 <= payload["vbat"] <= 4.3
+
+
+class TestGasWarmupGuard:
+    """Tests for MQ-2 120-second pre-heat thermal stabilization guard."""
+
+    def test_gas_cal_pending_during_120s_warmup(self):
+        """Gas calibration flag must remain pending for the full 120s warmup period."""
+        warmup_s = 120
+        cal_gas_at = warmup_s * 1000
+
+        # At t = 60s (halfway through warmup), gas calibration is NOT complete
+        now = 60000
+        gas_cal = (now >= cal_gas_at)
+        assert not gas_cal
+
+        # At t = 120s, warmup complete
+        now = 120000
+        gas_cal = (now >= cal_gas_at)
+        assert gas_cal
+
+

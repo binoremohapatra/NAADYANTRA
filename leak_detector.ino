@@ -20,7 +20,9 @@
  *
  * Hardware Notes:
  *  - Contact Piezo: Requires 1.65V virtual ground bias node and op-amp stage (gain 20-50).
- *  - MQ Gas Sensor: 5V divider stepped down to 3.3V range via 10k/20k resistor network.
+ *  - MQ Gas Sensor: 5V divider stepped down to ADC linear range via 15k/10k resistor network (2.5x divider ratio, max 2.125V at ADC).
+ *  - Battery Monitor: 100k/100k 1% divider on 1S LiPo rail (2.0x factor). Low battery alert at 3.55V, critical cutoff at 3.45V.
+ *  - Load Disconnect: PIN_BOOST_EN controls high-side P-MOSFET to cut MT3608 + MQ-2 heater to 0mA during shutdown/sleep.
  *  - Moisture Probe: Interleaved excitation pulse via PIN_MOIST_PWR to prevent galvanic corrosion.
  *  - MLX90614: Direct SMBus transaction @ 100kHz standard I2C clock.
  *  - Controls: Short press on BOOT toggles active session; long press (>2s) recalibrates baseline.
@@ -34,9 +36,7 @@
 #include <time.h>
 #include <esp_random.h>
 
-#if !defined(ESP_ARDUINO_VERSION_MAJOR) || (ESP_ARDUINO_VERSION_MAJOR < 3)
-#error "Arduino-ESP32 core 3.x required (Boards Manager -> 'esp32 by Espressif Systems' >= 3.0.0)"
-#endif
+// Dual-core compatibility: supports both Arduino-ESP32 Core 2.x and Core 3.x HAL
 
 #define FW_VERSION  "1.1.0"
 
@@ -53,6 +53,8 @@
 #define HAS_MOISTURE_SENSOR   1
 #define HAS_HEAT_SENSOR       0   // MLX90614 contactless IR pyrometer enabled
 #define HAS_UV_SENSOR         0   // GUVA-S12SD analog UV sensor enabled
+#define HAS_DISTANCE_SENSOR   0   // VL53L0X Time-of-Flight distance sensor (I2C 0x29)
+#define VL53_ADDR             0x29
 #define MOIST_POWER_GATED     1   // Gated excitation pin to prevent electrolytic oxidation
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
@@ -80,11 +82,13 @@
 
 // ---- Pins ----
 #if CONFIG_IDF_TARGET_ESP32S3      // ESP32-S3 default pinout mapping
-  #define PIN_PIEZO       4        // ADC1
-  #define PIN_REFERENCE   7        // ADC1
-  #define PIN_GAS         5        // ADC1
-  #define PIN_MOISTURE    6        // ADC1
-  #define PIN_UV          1        // ADC1
+  #define PIN_PIEZO       4        // ADC1_CH3
+  #define PIN_REFERENCE   7        // ADC1_CH6
+  #define PIN_GAS         5        // ADC1_CH4
+  #define PIN_MOISTURE    6        // ADC1_CH5
+  #define PIN_UV          1        // ADC1_CH0
+  #define PIN_BATTERY     2        // ADC1_CH1 (100k/100k divider)
+  #define PIN_BOOST_EN    11       // MT3608 load-disconnect gate control
   #define PIN_MOIST_PWR   10
   #define PIN_SDA         8
   #define PIN_SCL         9
@@ -95,11 +99,13 @@
   #define PIN_LED_RED     21
   #define PIN_BUTTON      0        // BOOT button
 #else                              // Classic ESP32 WROOM pinout mapping
-  #define PIN_PIEZO       34
-  #define PIN_REFERENCE   33
-  #define PIN_GAS         35
-  #define PIN_MOISTURE    32
-  #define PIN_UV          36
+  #define PIN_PIEZO       34       // ADC1_CH6 (input-only)
+  #define PIN_REFERENCE   33       // ADC1_CH5
+  #define PIN_GAS         35       // ADC1_CH7 (input-only)
+  #define PIN_MOISTURE    32       // ADC1_CH4
+  #define PIN_UV          36       // ADC1_CH0 / SENSOR_VP (input-only)
+  #define PIN_BATTERY     39       // ADC1_CH3 / SENSOR_VN (input-only, 100k/100k divider)
+  #define PIN_BOOST_EN    19       // MT3608 load-disconnect gate control
   #define PIN_MOIST_PWR   23
   #define PIN_SDA         21
   #define PIN_SCL         22
@@ -135,13 +141,13 @@
 #define CUE_BEEP_MS           25
 
 // ---- Combustible Gas (MQ Sensor Calibration) ---- (ADC raw counts, 0-4095)
-#define GAS_WARMUP_S          60     // Pre-heat stabilization period in seconds
+#define GAS_WARMUP_S          120    // Pre-heat stabilization period in seconds (2 min minimum for clean air baseline)
 #define GAS_WARN_DELTA        150    // Warning delta above ambient baseline
-#define GAS_ALARM_DELTA      400    // Critical alarm delta above ambient baseline
+#define GAS_ALARM_DELTA       400    // Critical alarm delta above ambient baseline
 // Load resistor and voltage divider parameters for Rs/R0 calculations
-#define GAS_RL_KOHM           10.0f  // module ka load resistor
+#define GAS_RL_KOHM           10.0f  // module load resistor
 #define GAS_VCC               5.0f   // sensor heater/divider supply
-#define GAS_DIV_FACTOR        1.5f   // (10k+20k)/20k divider
+#define GAS_DIV_FACTOR        2.5f   // 15k top / 10k bottom divider network (2.5x scaling factor, max V_adc <= 2.125V)
 // Optional calibrated ppm / %LEL curve parameters
 // Set GAS_CAL_VALID to 1 only after calibrating against reference standards
 #define GAS_CAL_VALID         0
@@ -150,6 +156,13 @@
 #define GAS_LEL_PPM           18000.0f   // 100% LEL equivalent in ppm for combustible gas
 #define GAS_WARN_LEL_PCT      10.0f      // LEL warning threshold percentage
 #define GAS_ALARM_LEL_PCT     20.0f
+
+// ---- Battery Monitoring & Power Management ----
+#define BAT_DIV_FACTOR        2.0f   // 100k/100k 1% divider network (2.0x scaling factor)
+#define BAT_WARN_MV           3550   // 3.55V low-battery warning threshold
+#define BAT_CLEAR_MV          3650   // 3.65V clear threshold (hysteresis)
+#define BAT_SHUTDOWN_MV       3450   // 3.45V critical cutoff threshold
+#define BAT_SHUTDOWN_SAMPLES  10     // Consecutive 1s samples required for shutdown assertion
 
 // ---- Moisture probe ----
 #define MOIST_WET_DELTA       300
@@ -268,6 +281,13 @@ struct App {
   // TinyML multimodal hazard fusion state
   int hzState = 0;
   uint8_t hzConf = 0;
+  // power & battery
+  uint16_t vBatMv = 0;
+  float vBat = 0.0f;
+  bool batLowWarn = false;
+  uint8_t batShutdownCnt = 0;
+  // distance (ToF)
+  int16_t distMm = -1;
 };
 
 static uint32_t gFs = 0, gWin = 0, gHop = 0, gRingMask = 0;
@@ -334,6 +354,7 @@ static void setupAdc() {
   analogReadResolution(12);
   const uint8_t pins[] = {
     PIN_PIEZO,
+    PIN_BATTERY,
 #if USE_REFERENCE_SENSOR
     PIN_REFERENCE,
 #endif
@@ -409,9 +430,16 @@ static void samplerTask(void*) {
 
 static void startSampling() {
   xTaskCreatePinnedToCore(samplerTask, "sampler", 4096, nullptr, 10, &gSamplerTask, 1);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
   gTimer = timerBegin(1000000);                                  // 1 MHz tick
   timerAttachInterrupt(gTimer, &onSampleTimer);
   timerAlarm(gTimer, 1000000UL / gFs, true, 0);                  // 1/Fs timer period
+#else
+  gTimer = timerBegin(0, 80, true);                              // Core 2.x: Timer 0, prescaler 80 = 1 MHz
+  timerAttachInterrupt(gTimer, &onSampleTimer, true);
+  timerAlarmWrite(gTimer, 1000000UL / gFs, true);
+  timerAlarmEnable(gTimer);
+#endif
 }
 
 #if RUN_MODE == RUN_MODE_COLLECT
@@ -699,10 +727,10 @@ static void logEvent(const char* ev, uint32_t now) {
   snprintf(it.trainee, sizeof(it.trainee), "%s", gTrainee);
   const int n = snprintf(it.json, sizeof(it.json),
     "{\"t\":%lu,\"up\":%lu,\"ev\":\"%s\",\"device\":\"%s\",\"alert\":\"%s\",\"cause\":\"%s\",\"lbl\":\"%s\","
-    "\"pl\":%.2f,\"rms\":%.1f,\"gas\":%d,\"gr\":%.2f,\"tc\":%.1f,\"uv\":%d,\"wet\":%d,\"hz\":%d,\"hz_c\":%u}",
+    "\"pl\":%.2f,\"rms\":%.1f,\"gas\":%d,\"gr\":%.2f,\"tc\":%.1f,\"uv\":%d,\"wet\":%d,\"dist\":%d,\"vbat\":%.2f,\"hz\":%d,\"hz_c\":%u}",
     (unsigned long)nowEpoch(), (unsigned long)(now - app.sess.startMs), ev, DEVICE_ID, alertName(app.alert),
     causeName(app.cause), app.label, app.pLeak, app.rmsEma, gasDelta(), gasRatio(),
-    app.heat.temp, uvDelta(), app.moist.wet.state ? 1 : 0, app.hzState, (unsigned)app.hzConf);
+    app.heat.temp, uvDelta(), app.moist.wet.state ? 1 : 0, (int)app.distMm, app.vBat, app.hzState, (unsigned)app.hzConf);
   if (n <= 0 || n >= (int)sizeof(it.json)) return;
   enqueueLog(it);
 }
@@ -824,7 +852,11 @@ static void setBuzzer(bool on) {
   if (on == app.buzzOn) return;
   app.buzzOn = on;
 #if BUZZER_PASSIVE
-  ledcWriteTone(PIN_BUZZER, on ? BUZZER_FREQ_HZ : 0);
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcWriteTone(PIN_BUZZER, on ? BUZZER_FREQ_HZ : 0);
+  #else
+    ledcWriteTone(0, on ? BUZZER_FREQ_HZ : 0);
+  #endif
 #else
   digitalWrite(PIN_BUZZER, on ? HIGH : LOW);
 #endif
@@ -876,17 +908,23 @@ static void refreshDisplay(uint32_t now) {
   gOled.clearDisplay();
   gOled.setTextColor(SSD1306_WHITE);
 
-  // Header: Trainee ID, elapsed session time, and network status
+  // Header: Trainee ID, elapsed session time, battery and network status
   gOled.setTextSize(1);
   gOled.setCursor(0, 0);
   if (app.sess.active) {
     const unsigned long s = (now - app.sess.startMs) / 1000UL;
-    snprintf(b, sizeof(b), "%s REC %02lu:%02lu", gTrainee, s / 60, s % 60);
+    snprintf(b, sizeof(b), "%s %02lu:%02lu", gTrainee, s / 60, s % 60);
   } else {
     snprintf(b, sizeof(b), "%s IDLE", gTrainee);
   }
   gOled.print(b);
-  gOled.setCursor(104, 0);
+  gOled.setCursor(76, 0);
+  if (app.batLowWarn && ((now / 500) & 1)) {
+    gOled.print("!BAT ");
+  } else if (app.vBat > 0.1f) {
+    snprintf(b, sizeof(b), "%.1fV ", app.vBat);
+    gOled.print(b);
+  }
   gOled.print(gWifiUp ? "WiFi" : "----");
 
   // Primary status readouts
@@ -1023,6 +1061,93 @@ static void pollSlowSensors(uint32_t now) {
   uvFeed(app.uv, gUvRaw.load(std::memory_order_relaxed));
 #endif
   (void)now;
+}
+
+// ---------- Battery & Power Management ----------
+static uint16_t readBatteryMv() {
+  const uint32_t raw = analogRead(PIN_BATTERY);
+  // 12-bit ADC -> 0..4095 over ~3.3V (with 11dB attenuation)
+  // Multiplied by divider factor (BAT_DIV_FACTOR = 2.0 for 100k/100k)
+  const float vPin = (float)raw / 4095.0f * 3.3f;
+  const float vBat = vPin * BAT_DIV_FACTOR;
+  return (uint16_t)(vBat * 1000.0f);
+}
+
+static void shutdownDevice() {
+#if DEBUG_SERIAL
+  Serial.println("[pwr] CRITICAL LOW BATTERY! Disconnecting load and sleeping...");
+  Serial.flush();
+#endif
+  // 1. OLED shutdown notification
+  if (gOledOk) {
+    gOled.clearDisplay();
+    gOled.setTextColor(SSD1306_WHITE);
+    gOled.setTextSize(2);
+    gOled.setCursor(4, 16);
+    gOled.print("BATTERY LOW");
+    gOled.setTextSize(1);
+    gOled.setCursor(16, 42);
+    gOled.print("SHUTTING DOWN");
+    gOled.display();
+    delay(1500);
+    gOled.ssd1306_command(SSD1306_DISPLAYOFF);
+  }
+  // 2. Extinguish all indicators and outputs
+  digitalWrite(PIN_LED_GREEN, LOW);
+  digitalWrite(PIN_LED_YELLOW, LOW);
+  digitalWrite(PIN_LED_RED, LOW);
+  digitalWrite(PIN_VIBRATION, LOW);
+  setBuzzer(false);
+  // 3. Cut off MT3608 boost rail (MQ-2 heater 0 mA)
+  digitalWrite(PIN_BOOST_EN, LOW);
+#if HAS_MOISTURE_SENSOR && MOIST_POWER_GATED
+  digitalWrite(PIN_MOIST_PWR, LOW);
+#endif
+  // 4. Disable Wi-Fi radio to conserve remaining capacity
+#if ENABLE_WIFI_LOGGING
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+#endif
+  // 5. Deep sleep indefinitely until external recharge or hard power reset
+  esp_deep_sleep_start();
+}
+
+static void pollBattery(uint32_t now) {
+  static uint32_t lastBatMs = 0;
+  if (now - lastBatMs < 1000) return;  // 1 Hz battery check
+  lastBatMs = now;
+  const uint16_t mv = readBatteryMv();
+  if (app.vBatMv == 0) app.vBatMv = mv;
+  else app.vBatMv = (uint16_t)(0.8f * (float)app.vBatMv + 0.2f * (float)mv);
+  app.vBat = (float)app.vBatMv / 1000.0f;
+
+  // Low battery warning with hysteresis
+  if (!app.batLowWarn && app.vBatMv <= BAT_WARN_MV) {
+    app.batLowWarn = true;
+  } else if (app.batLowWarn && app.vBatMv >= BAT_CLEAR_MV) {
+    app.batLowWarn = false;
+  }
+
+  // Critical cutoff with 10-sample debouncer
+  if (app.vBatMv <= BAT_SHUTDOWN_MV) {
+    if (++app.batShutdownCnt >= BAT_SHUTDOWN_SAMPLES) {
+      shutdownDevice();
+    }
+  } else {
+    app.batShutdownCnt = 0;
+  }
+}
+
+static void pollDistance(uint32_t now) {
+#if HAS_DISTANCE_SENSOR
+  static uint32_t lastDistMs = 0;
+  if (now - lastDistMs < 100) return;
+  lastDistMs = now;
+  // VL53L0X distance polling when hardware enabled
+#else
+  (void)now;
+  app.distMm = -1;  // -1 indicates distance sensor disabled or not fitted
+#endif
 }
 
 static void runCalibration(uint32_t now) {
@@ -1217,10 +1342,10 @@ static void periodicTasks(uint32_t now) {
     // Track minimum free heap across lifetime for memory regression detection.
     const uint32_t curHeap = (uint32_t)ESP.getFreeHeap();
     if (curHeap < app.minFreeHeap) app.minFreeHeap = curHeap;
-    Serial.printf("[%lus] %s/%s lbl=%s pL=%.2f pN=%.2f rms=%.1f base=%.1f gas=%+d gr=%.2f heat=%.1fC uv=%+d wet=%d wifi=%d ovr=%lu heap=%lu minHeap=%lu qd=%lu\n",
+    Serial.printf("[%lus] %s/%s lbl=%s pL=%.2f pN=%.2f rms=%.1f base=%.1f gas=%+d gr=%.2f heat=%.1fC uv=%+d wet=%d dist=%d vbat=%.2f wifi=%d ovr=%lu heap=%lu minHeap=%lu qd=%lu\n",
                   (unsigned long)(now / 1000), alertName(app.alert), causeName(app.cause), app.label,
                   app.pLeak, app.pNoise, app.rms, gRmsBase.load(), gasDelta(), gasRatio(), app.heat.temp, uvDelta(),
-                  app.moist.wet.state ? 1 : 0, gWifiUp ? 1 : 0,
+                  app.moist.wet.state ? 1 : 0, (int)app.distMm, app.vBat, gWifiUp ? 1 : 0,
                   (unsigned long)gOverruns.load(), (unsigned long)curHeap,
                   (unsigned long)app.minFreeHeap,
                   (unsigned long)uxQueueMessagesWaiting(gLogQ));
@@ -1239,8 +1364,15 @@ void setup() {
 
   pinMode(PIN_LED_GREEN, OUTPUT); pinMode(PIN_LED_YELLOW, OUTPUT); pinMode(PIN_LED_RED, OUTPUT);
   pinMode(PIN_VIBRATION, OUTPUT); pinMode(PIN_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_BOOST_EN, OUTPUT);
+  digitalWrite(PIN_BOOST_EN, HIGH); // Assert gate to power MT3608 boost converter for MQ-2 heater
 #if BUZZER_PASSIVE
-  ledcAttach(PIN_BUZZER, BUZZER_FREQ_HZ, 10);
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcAttach(PIN_BUZZER, BUZZER_FREQ_HZ, 10);
+  #else
+    ledcSetup(0, BUZZER_FREQ_HZ, 10);
+    ledcAttachPin(PIN_BUZZER, 0);
+  #endif
 #else
   pinMode(PIN_BUZZER, OUTPUT);
 #endif
@@ -1285,6 +1417,8 @@ void loop() {
   handleButton(now);
   handleSerial(now);
   pollSlowSensors(now);
+  pollBattery(now);
+  pollDistance(now);
   pollHeat(now);
   runCalibration(now);
   pollAcoustic(now);

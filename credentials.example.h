@@ -18,14 +18,9 @@
  * 5. NEVER commit "credentials.h" to version control (it is ignored by .gitignore).
  */
 
-// ---- Local Wi-Fi Network ----
 #define WIFI_SSID        "YOUR_BENCH_WIFI_SSID"
 #define WIFI_PASSWORD    "YOUR_BENCH_WIFI_PASSWORD"
-
-// ---- Provisioned Device Identity & Authentication ----
-#define DEVICE_ID        "SIH-DEV-01"
-#define DEVICE_KEY       "YOUR_PROVISIONED_DEVICE_KEY"
-#define TRAINEE_ID       "T001"
-
-// ---- Production Cloud Backend URL ----
 #define BACKEND_URL      "https://naadyantra.onrender.com"
+#define DEVICE_KEY       "YOUR_PROVISIONED_DEVICE_KEY"
+#define DEVICE_ID        "SIH-DEV-01"
+#define TRAINEE_ID       "T001"
