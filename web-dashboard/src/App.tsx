@@ -7,6 +7,8 @@ import Devices from './pages/Devices';
 import DeviceDetail from './pages/DeviceDetail';
 import Alerts from './pages/Alerts';
 import Sessions from './pages/Sessions';
+import Trainees from './pages/Trainees';
+import Assessments from './pages/Assessments';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,6 +55,8 @@ function App() {
           <Route path="devices" element={<Devices />} />
           <Route path="devices/:deviceId" element={<DeviceDetail />} />
           <Route path="sessions" element={<Sessions />} />
+          <Route path="trainees" element={<Trainees />} />
+          <Route path="assessments" element={<Assessments />} />
           <Route path="alerts" element={<Alerts />} />
         </Route>
       </Routes>

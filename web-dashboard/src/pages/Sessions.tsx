@@ -119,6 +119,9 @@ function Sessions() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-warmGraphite uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-warmStone">
@@ -149,6 +152,27 @@ function Sessions() {
                     >
                       {session.ended_at ? 'Completed' : 'Active'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await apiClient.exportSessionCsv(session.id);
+                          const blob = new Blob([res.data], { type: 'text/csv' });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = res.filename || `session_${session.id}_export.csv`;
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        } catch (err) {
+                          alert('Failed to export session telemetry CSV');
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs font-medium bg-offWhite border border-warmStone text-obsidian rounded hover:border-burntOrange hover:text-burntOrange transition-colors"
+                    >
+                      Export CSV
+                    </button>
                   </td>
                 </tr>
               ))}

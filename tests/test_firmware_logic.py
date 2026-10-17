@@ -626,3 +626,107 @@ class TestHazardModelFusionLogic:
         assert parsed["hz_c"] == 80
         assert "t" in parsed and "pl" in parsed and "rms" in parsed
 
+
+# =============================================================================
+# Sensor Evaluation Toolkit & Signal Processing Unit Tests
+# =============================================================================
+
+class TestSensorEvaluationToolkit:
+
+    def test_analyzer_initialization_nyquist(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer(sampling_rate_hz=4000)
+        assert analyzer.sampling_rate == 4000
+        assert analyzer.nyquist == 2000.0
+
+    def test_dc_bias_computation(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+        samples = [10.0, 20.0, 30.0]
+        assert analyzer.compute_dc_bias(samples) == 20.0
+        assert analyzer.compute_dc_bias([]) == 0.0
+
+    def test_iir_dc_block_removes_constant_offset(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+        # Constant DC signal of 512.0
+        constant_dc = [512.0] * 500
+        filtered = analyzer.apply_dc_block(constant_dc, alpha=0.95)
+        assert len(filtered) == 500
+        # After settling, the output decays towards 0
+        assert abs(filtered[-1]) < 0.1
+
+    def test_rms_calculation(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+        assert analyzer.compute_rms([]) == 0.0
+        # For alternating [-10, 10], RMS = sqrt((100+100)/2) = 10.0
+        square_wave = [-10.0, 10.0] * 50
+        assert abs(analyzer.compute_rms(square_wave) - 10.0) < 1e-4
+
+    def test_crest_factor_calculation(self):
+        import math
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+        # Sine wave peak=1.414, rms=1.0 -> crest factor approx sqrt(2)=1.414
+        sine = [math.sin(2 * math.pi * i / 100) for i in range(1000)]
+        rms = analyzer.compute_rms(sine)
+        crest = analyzer.compute_crest_factor(sine, rms)
+        assert 1.3 < crest < 1.5
+
+    def test_threshold_boundary_evaluation(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+
+        # 1. Nominal ambient
+        res_norm = analyzer.evaluate_threshold_boundaries(rms=400.0, gas_delta=50.0, temperature_c=26.0)
+        assert res_norm["composite_alert"] == "NORMAL"
+        assert res_norm["acoustic"]["status"] == "NOMINAL_AMBIENT"
+
+        # 2. Elevated acoustic warning
+        res_warn = analyzer.evaluate_threshold_boundaries(rms=1200.0, gas_delta=50.0, temperature_c=26.0)
+        assert res_warn["composite_alert"] == "CAUTION"
+        assert res_warn["acoustic"]["severity"] == "WARNING"
+
+        # 3. Critical leak danger
+        res_crit = analyzer.evaluate_threshold_boundaries(rms=2400.0, gas_delta=50.0, temperature_c=26.0)
+        assert res_crit["composite_alert"] == "DANGER"
+        assert res_crit["acoustic"]["status"] == "CRITICAL_LEAK"
+
+        # 4. Combustible gas breach
+        res_gas = analyzer.evaluate_threshold_boundaries(rms=300.0, gas_delta=550.0, temperature_c=26.0)
+        assert res_gas["composite_alert"] == "DANGER"
+        assert res_gas["gas"]["status"] == "COMBUSTIBLE_GAS_SATURATION"
+
+    def test_csv_and_markdown_export(self):
+        from tools.sensor_evaluation_toolkit import SensorSignalAnalyzer
+        analyzer = SensorSignalAnalyzer()
+        records = [{
+            "timestamp": "2026-10-17T12:00:00Z",
+            "device_id": "SIH-DEV-01",
+            "session_id": 1,
+            "sample_count": 4000,
+            "dc_bias": 2048.0,
+            "rms": 1450.0,
+            "crest_factor": 2.45,
+            "gas_delta": 180,
+            "temperature_c": 29.5,
+            "composite_alert": "CAUTION",
+            "validation_status": "PASS"
+        }]
+        csv_out = analyzer.export_test_run_csv(records)
+        assert "timestamp,device_id,session_id" in csv_out
+        assert "SIH-DEV-01" in csv_out
+        assert "1450.00" in csv_out
+
+        md_out = analyzer.generate_calibration_report_markdown(
+            bench_id="BENCH-ALPHA-01",
+            board_variant="ESP32-S3",
+            test_records=records,
+            evaluator="Lead Engineer"
+        )
+        assert "BENCH-ALPHA-01" in md_out
+        assert "ESP32-S3" in md_out
+        assert "W-001" in md_out
+        assert "BENCH_SOFTWARE_VERIFIED" in md_out
+

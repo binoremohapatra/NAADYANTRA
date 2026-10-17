@@ -132,3 +132,79 @@ export interface DashboardAlert {
     gas_delta?: number;
   };
 }
+
+export interface Trainee {
+  id: number;
+  trainee_id: string;
+  name: string;
+  cohort: string | null;
+  trainee_metadata: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TraineeCreateRequest {
+  trainee_id: string;
+  name: string;
+  cohort?: string;
+  trainee_metadata?: Record<string, any>;
+}
+
+export interface AssessmentRubric {
+  id: number;
+  rubric_id: string;
+  version: string;
+  name: string;
+  description: string | null;
+  rules: Record<string, any>;
+  created_by: string;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface Assessment {
+  id: number;
+  assessment_id: string;
+  session_id: number;
+  trainee_id: string;
+  rubric_id: string;
+  rubric_version: string;
+  evidence_event_ids: number[];
+  score: number | null;
+  max_score: number | null;
+  outcome: string; // 'competent' | 'needs_improvement' | 'not_assessable'
+  scoring_explanation: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface TrainerReview {
+  id: number;
+  assessment_id: string;
+  reviewer: string;
+  comments: string;
+  override_score: number | null;
+  override_outcome: string | null;
+  created_at: string;
+}
+
+export interface AssessmentCreateRequest {
+  assessment_id: string;
+  session_id: number;
+  rubric_id: string;
+  rubric_version: string;
+  evidence_event_ids: number[];
+  scoring_explanation?: string;
+}
+
+export interface TrainerReviewRequest {
+  comments: string;
+  override_score?: number;
+  override_outcome?: string;
+}
+
+export interface SessionExportResponse {
+  content_type: string;
+  filename: string;
+  data: string;
+}

@@ -10,6 +10,14 @@ import type {
   DashboardOverview,
   PaginatedResponse,
   DashboardAlert,
+  Trainee,
+  TraineeCreateRequest,
+  Assessment,
+  AssessmentRubric,
+  TrainerReview,
+  AssessmentCreateRequest,
+  TrainerReviewRequest,
+  SessionExportResponse,
 } from '../types';
 
 export interface HealthCheckResponse {
@@ -206,6 +214,94 @@ class ApiClient {
 
   async getSessionSummary(sessionId: number | string): Promise<SessionSummary> {
     const response = await this.client.get<SessionSummary>(`/api/v1/sessions/${sessionId}/summary`);
+    return response.data;
+  }
+
+  async exportSessionCsv(sessionId: number | string): Promise<SessionExportResponse> {
+    const response = await this.client.get<SessionExportResponse>(`/api/v1/sessions/${sessionId}/export`);
+    return response.data;
+  }
+
+  // Trainee endpoints
+  async getTrainees(params?: {
+    page?: number;
+    page_size?: number;
+    is_active?: boolean;
+    search?: string;
+    cohort?: string;
+  }): Promise<PaginatedResponse<Trainee>> {
+    const response = await this.client.get<PaginatedResponse<Trainee>>('/api/v1/trainees', {
+      params,
+    });
+    return response.data;
+  }
+
+  async getTrainee(traineeId: string): Promise<Trainee> {
+    const response = await this.client.get<Trainee>(`/api/v1/trainees/${traineeId}`);
+    return response.data;
+  }
+
+  async createTrainee(data: TraineeCreateRequest): Promise<Trainee> {
+    const response = await this.client.post<Trainee>('/api/v1/trainees', data);
+    return response.data;
+  }
+
+  async getTraineeSessions(traineeId: string, params?: { page?: number; page_size?: number }): Promise<PaginatedResponse<Session>> {
+    const response = await this.client.get<PaginatedResponse<Session>>(`/api/v1/trainees/${traineeId}/sessions`, {
+      params,
+    });
+    return response.data;
+  }
+
+  async getTraineeAssessments(traineeId: string, params?: { page?: number; page_size?: number }): Promise<PaginatedResponse<Assessment>> {
+    const response = await this.client.get<PaginatedResponse<Assessment>>(`/api/v1/trainees/${traineeId}/assessments`, {
+      params,
+    });
+    return response.data;
+  }
+
+  // Assessment & Rubric endpoints
+  async getAssessments(params?: {
+    page?: number;
+    page_size?: number;
+    trainee_id?: string;
+    rubric_id?: string;
+    outcome?: string;
+  }): Promise<PaginatedResponse<Assessment>> {
+    const response = await this.client.get<PaginatedResponse<Assessment>>('/api/v1/assessments', {
+      params,
+    });
+    return response.data;
+  }
+
+  async getAssessment(assessmentId: string): Promise<Assessment> {
+    const response = await this.client.get<Assessment>(`/api/v1/assessments/${assessmentId}`);
+    return response.data;
+  }
+
+  async createAssessment(data: AssessmentCreateRequest): Promise<Assessment> {
+    const response = await this.client.post<Assessment>('/api/v1/assessments', data);
+    return response.data;
+  }
+
+  async reviewAssessment(assessmentId: string, data: TrainerReviewRequest): Promise<TrainerReview> {
+    const response = await this.client.post<TrainerReview>(`/api/v1/assessments/${assessmentId}/review`, data);
+    return response.data;
+  }
+
+  async getRubrics(params?: {
+    page?: number;
+    page_size?: number;
+    is_active?: boolean;
+  }): Promise<PaginatedResponse<AssessmentRubric>> {
+    const response = await this.client.get<PaginatedResponse<AssessmentRubric>>('/api/v1/assessment-rubrics', {
+      params,
+    });
+    return response.data;
+  }
+
+  async getRubric(rubricId: string): Promise<AssessmentRubric> {
+    const response = await this.client.get<AssessmentRubric>(`/api/v1/assessment-rubrics/${rubricId}`);
     return response.data;
   }
 

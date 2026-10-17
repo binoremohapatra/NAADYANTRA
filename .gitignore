@@ -104,6 +104,8 @@ Scripts/
 Steam*
 TRAE*
 Tools/
+!tools/
+!tools/**
 Ubuntu-WSL/
 VRoidStudio*
 _CommonRedist/

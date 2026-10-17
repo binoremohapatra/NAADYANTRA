@@ -32,7 +32,7 @@ function Layout({ onLogout }: LayoutProps) {
               </h1>
               <span className="ml-4 text-sm text-warmGraphite">Admin Console</span>
             </div>
-            <nav className="flex space-x-8">
+            <nav className="flex space-x-6">
               <Link
                 to="/"
                 className="text-warmGraphite hover:text-burntOrange font-medium transition-colors"
@@ -50,6 +50,18 @@ function Layout({ onLogout }: LayoutProps) {
                 className="text-warmGraphite hover:text-burntOrange font-medium transition-colors"
               >
                 Sessions
+              </Link>
+              <Link
+                to="/trainees"
+                className="text-warmGraphite hover:text-burntOrange font-medium transition-colors"
+              >
+                Trainees
+              </Link>
+              <Link
+                to="/assessments"
+                className="text-warmGraphite hover:text-burntOrange font-medium transition-colors"
+              >
+                Assessments
               </Link>
               <Link
                 to="/alerts"
