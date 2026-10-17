@@ -856,6 +856,43 @@ class TestBatteryAndPowerIntegrity:
         assert payload["dist"] == -1
         assert 3.0 <= payload["vbat"] <= 4.3
 
+    def test_database_event_battery_v_property_extraction(self):
+        """Event.battery_v property must extract vbat from raw_payload and round to 2 decimals."""
+        from backend.database import Event
+        ev = Event(raw_payload={"vbat": 3.847, "dist": 150})
+        assert ev.battery_v == 3.85
+        assert ev.distance_mm == 150
+
+        # When missing or invalid (e.g. <= 0 or None), returns None (never fabricated)
+        ev_empty = Event(raw_payload={})
+        assert ev_empty.battery_v is None
+        assert ev_empty.distance_mm is None
+
+        ev_zero = Event(raw_payload={"vbat": 0.0, "dist": -1})
+        assert ev_zero.battery_v is None
+        assert ev_zero.distance_mm is None
+
+    def test_event_response_schema_serializes_battery_v(self):
+        """Pydantic EventResponse schema must accept and validate battery_v field from Event."""
+        from backend.database import Event
+        from backend.schemas import EventResponse
+        from datetime import datetime, timezone
+        ev = Event(
+            id=1,
+            device_id="SIH-DEV-01",
+            session_id=1,
+            internal_session_id=1,
+            trainee_id="T001",
+            event_kind="event",
+            device_timestamp=1729180000,
+            server_timestamp=datetime.now(timezone.utc),
+            raw_payload={"vbat": 3.85, "dist": 250},
+            ingestion_status="accepted"
+        )
+        resp = EventResponse.model_validate(ev)
+        assert resp.battery_v == 3.85
+        assert resp.distance_mm == 250
+
 
 class TestGasWarmupGuard:
     """Tests for MQ-2 120-second pre-heat thermal stabilization guard."""

@@ -136,6 +136,81 @@ void main() {
       },
     );
 
+    test('Event model parses battery_v and falls back to vbat in raw_payload', () {
+      // Test top-level battery_v
+      final json1 = {
+        'id': 1,
+        'device_id': 'SIH-DEV-01',
+        'event_kind': 'normal',
+        'event_name': 'Acoustic Scan',
+        'server_timestamp': '2026-10-17T12:00:00Z',
+        'battery_v': 3.95,
+      };
+      final ev1 = Event.fromJson(json1);
+      expect(ev1.batteryVoltage, 3.95);
+      expect(ev1.hasBatteryData, isTrue);
+
+      // Test fallback to raw_payload['vbat']
+      final json2 = {
+        'id': 2,
+        'device_id': 'SIH-DEV-01',
+        'event_kind': 'normal',
+        'event_name': 'Acoustic Scan',
+        'server_timestamp': '2026-10-17T12:00:00Z',
+        'raw_payload': {'vbat': 3.82},
+      };
+      final ev2 = Event.fromJson(json2);
+      expect(ev2.batteryVoltage, 3.82);
+      expect(ev2.hasBatteryData, isTrue);
+
+      // Test missing battery data
+      final json3 = {
+        'id': 3,
+        'device_id': 'SIH-DEV-01',
+        'event_kind': 'normal',
+        'event_name': 'Acoustic Scan',
+        'server_timestamp': '2026-10-17T12:00:00Z',
+      };
+      final ev3 = Event.fromJson(json3);
+      expect(ev3.batteryVoltage, isNull);
+      expect(ev3.hasBatteryData, isFalse);
+    });
+
+    testWidgets('EventRow displays battery voltage when present', (
+      WidgetTester tester,
+    ) async {
+      final sampleEventWithBattery = Event(
+        id: 102,
+        deviceId: 'SIH-DEV-01',
+        sessionId: 1,
+        internalSessionId: 1,
+        traineeId: 'TR-001',
+        eventKind: 'acoustic_anomaly',
+        eventName: 'Pipeline Vibration',
+        serverTimestamp: DateTime.now(),
+        hazardState: 1,
+        leakProbability: 0.45,
+        alert: 'WARNING',
+        rawPayload: const {},
+        ingestionStatus: 'NORMAL',
+        batteryVoltage: 3.88,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(body: EventRow(event: sampleEventWithBattery)),
+        ),
+      );
+
+      // Tap to open sheet
+      await tester.tap(find.byType(EventRow));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Battery'), findsOneWidget);
+      expect(find.text('3.88 V'), findsOneWidget);
+    });
+
     testWidgets(
       'ShimmerBox renders loading skeleton with specified dimensions',
       (WidgetTester tester) async {
@@ -156,3 +231,4 @@ void main() {
     );
   });
 }
+

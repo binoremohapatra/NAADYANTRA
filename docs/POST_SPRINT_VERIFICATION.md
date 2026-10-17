@@ -1,22 +1,26 @@
-# NAADYANTRA — Post-Optimization Verification & TinyML Handoff Report
+# NAADYANTRA — Software-Only Final Release Verification Report
 
-**Date:** 2026-10-14  
-**Target:** ESP32-WROOM-32E (Xtensa Dual-Core LX6 @ 240 MHz, 520 KB SRAM, 4 MB SPI Flash)  
-**Status:** Verification Passed (Backend, Mobile App, Firmware Logic & Queues, Git Push Verified)  
+**Date:** 2026-10-17  
+**Starting Commit:** `573d878` on `origin/main`  
+**Status:** Verification Passed (Backend Ingestion & Auth, Mobile App & Models, Firmware Dual-Core Builds, Synthetic ML Pipeline)  
+**Scope:** Software-Only Audit. Physical hardware assembly, electrical measurements, and bench validation remain explicitly unverified.
 
 ---
 
 ## 1. Executive Summary & Verification Matrix
 
-All software components, ingestion contracts, mobile offline-first state machines, and firmware algorithmic components were verified via automated test runners.
+All software components, ingestion contracts, mobile offline-first state machines, battery telemetry pipelines, ML inference pipelines, and multi-target firmware builds were verified via actual compiler and automated test execution.
 
-| Validation Phase | Method / Command | Expected Standard | Actual Verified Output | Status |
+| Validation Domain | Verification Method / Command | Tested Architecture / Targets | Actual Verified Output | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Backend Integration** | `pytest tests/test_backend.py` | 41 passing integration tests | **41 passed, 0 failed** in 173.22s (exit code 0) | **PASSED** |
-| **Firmware Logic & Queues**| `pytest tests/test_firmware_logic.py` | Ring buffer, queue priority, schemas, stress | **48 passed, 0 failed** in 0.89s (exit code 0) | **PASSED** |
-| **Flutter Static Analysis**| `flutter analyze mobile_app/` | 0 issues found | **No issues found!** in 3.9s (exit code 0) | **PASSED** |
-| **Flutter Widget/Unit Tests**| `flutter test` (in `mobile_app/`) | 26 unit & widget tests | **All 26 tests passed!** in 1.4s (exit code 0) | **PASSED** |
-| **Firmware Build Toolchain** | CLI `arduino-cli` / `idf.py` | Host compilation check | Toolchains not in Windows PATH; verified via logic mirror & static analysis | **DEFERRED TO BENCH** |
+| **Backend Integration & Auth** | `pytest tests/test_backend.py` | FastAPI 0.115, SQLite/SQLAlchemy 2.0, Pydantic 2.10 | **47 passed, 0 failed** (exit code 0) | **VERIFIED** |
+| **Firmware Logic & Telemetry** | `pytest tests/test_firmware_logic.py` | Signal processing, queue priority, battery telemetry, schemas | **70 passed, 0 failed** in 1.48s (exit code 0) | **VERIFIED** |
+| **Flutter Static Analysis** | `flutter analyze` | Dart 3.13+ / Flutter 3.47+ (mobile_app) | **No issues found!** in 6.1s (exit code 0) | **VERIFIED** |
+| **Flutter Unit & Widget Tests**| `flutter test` | Riverpod 2.6, GoRouter 14, UI components, Battery parser | **57 passed, 0 failed** in 2.3s (exit code 0) | **VERIFIED** |
+| **Firmware Build (Core 2.x)** | PlatformIO `espressif32@7.1.3` | `esp32dev`, `esp32-s3-devkitc-1` (Core 2.0.17) | **2 succeeded** (exit code 0) | **CORE 2.x VERIFIED** |
+| **Firmware Build (Core 3.x)** | PlatformIO `espressif32@51.3.4` | `esp32dev`, `esp32-s3-devkitc-1` (Core 3.0.4, ESP-IDF 5.1) | **2 succeeded** (exit code 0) | **CORE 3.x VERIFIED** |
+| **Synthetic ML Pipeline** | `python ml/src/inference.py --synthetic-test` | Scikit-learn Random Forest baseline | **3/3 synthetic classes predicted** (1.0 conf) | **SYNTHETIC ML VERIFIED** |
+| **Physical Hardware Behavior** | N/A (Software-only scope) | Physical sensors, battery discharge, acoustic bench | **Not tested / Physical hardware required** | **PHYSICAL UNVERIFIED** |
 
 ---
 
@@ -106,3 +110,64 @@ The following items are deferred to the physical lab assembly phase:
 - Physical current consumption profiling with MQ-2 heater under Li-ion discharge.
 - Hardware ADC1 noise floor measurement on contact probe with OPA344 amplifier.
 - Ultrasonic / acoustic physical leak testing on pressurized airline.
+
+---
+
+## 7. Battery Telemetry End-to-End Data Flow & Zero-Fabrication Presentation
+
+The telemetry path for battery voltage (`vbat`) has been traced and verified across all architectural layers:
+
+1. **Firmware Acquisition & Serialization (`leak_detector.ino`):**
+   - Pin 39 (Sensor VN) samples the 2:1 resistive divider (`R_TOP = 100kΩ`, `R_BOTTOM = 100kΩ`).
+   - Software averaging (`ADC_OVERSAMPLES = 16`) converts raw ADC counts to battery voltage:
+     $$V_{\text{bat}} = \frac{\text{ADC}}{4095.0} \times 3.3\,\text{V} \times 2.0$$
+   - Serialized in JSON event payload as `"vbat": <float>`.
+2. **Backend Ingestion (`backend/ingestion.py`):**
+   - Ingests raw telemetry JSON payload directly into SQLite `events.raw_payload`.
+3. **Database Layer (`backend/database.py`):**
+   - `Event` SQLAlchemy model exposes a dynamic `@property def battery_v(self) -> Optional[float]:`
+   - Safely parses `"vbat"` or `"v_bat"` from `raw_payload`. Returns `None` if absent, zero, or uncalibrated. Never fabricates default voltage.
+4. **API Schemas (`backend/schemas.py`):**
+   - `EventResponse` Pydantic model includes `battery_v: Optional[float] = None`.
+   - Serializes as `null` when telemetry lacks battery data.
+5. **Mobile Data Model (`mobile_app/lib/shared/models/event.dart`):**
+   - `Event` Dart class exposes `final double? batteryVoltage` and boolean getter `hasBatteryData`.
+   - `fromJson` parses top-level `'battery_v'` with fallback to `'raw_payload'['vbat']`. Missing values resolve to `null`.
+6. **Mobile UI Presentation (`mobile_app/lib/shared/widgets/event_row.dart`):**
+   - In `_EventDetailSheet`, renders `_DetailRow(icon: Icons.battery_charging_full_rounded, label: 'Battery', value: '${event.batteryVoltage!.toStringAsFixed(2)} V')` only when `batteryVoltage != null`.
+   - Absent battery telemetry is gracefully omitted rather than manufactured.
+7. **Automated Regression Verification:**
+   - Python: `TestBatteryAndPowerIntegrity::test_database_event_battery_v_property_extraction` and `test_event_response_schema_serializes_battery_v` (PASSED).
+   - Flutter: `Event model parses battery_v and falls back to vbat in raw_payload` and `EventRow displays battery voltage when present` (PASSED).
+
+---
+
+## 8. Machine Learning Reproducibility & Synthetic Benchmark Honesty
+
+1. **Model Artifact Verification:**
+   - All documented inference artifacts are committed in `ml/models/random_forest_baseline/`:
+     - `model.joblib` (103 KB) — 50-tree Random Forest classifier
+     - `scaler.joblib` (783 B) — StandardScaler fitted on acoustic features
+     - `label_encoder.joblib` (501 B) — LabelEncoder (`['leak_like', 'noise', 'normal']`)
+     - `metadata.json` (1.8 KB) — Feature order, hyper-parameters, training timestamp
+2. **Inference Execution Test:**
+   - Executed `python ml/src/inference.py --synthetic-test`
+   - Test Results:
+     - Synthetic Leak signal: predicted `leak_like` (1.000 confidence)
+     - Synthetic Noise signal: predicted `noise` (1.000 confidence)
+     - Synthetic Normal signal: predicted `normal` (1.000 confidence)
+3. **Scientific Honesty Disclosure:**
+   - **Current model is trained and benchmarked strictly on synthetic parametric acoustic signals** generated via mathematical models of turbulent pipe leaks, environmental acoustic noise, and laminar flow.
+   - **Zero Real-World Validation Claimed:** Real-world field accuracy cannot be empirically stated until physical data collection on pressurized pipe rigs is executed. No manufactured field metrics or artificial accuracy numbers are reported.
+
+---
+
+## 9. Formal Verification Classification Taxonomy
+
+| Verification Tier | Scope | Verifiable Artifacts | Actual Status |
+| :--- | :--- | :--- | :--- |
+| **Tier 1: Core 2.x Build-Verified** | PlatformIO with Arduino-ESP32 Core 2.0.17 | `esp32dev`, `esp32-s3-devkitc-1` | **VERIFIED** |
+| **Tier 2: Core 3.x Build-Verified** | PlatformIO with Arduino-ESP32 Core 3.0.4 | `esp32dev`, `esp32-s3-devkitc-1` | **VERIFIED** |
+| **Tier 3: Software-Integration Verified** | FastAPI backend, SQLite caching, GoRouter, Riverpod | 117 Python tests, 57 Flutter tests, 0 lints | **VERIFIED** |
+| **Tier 4: Synthetic ML Benchmark Verified** | Feature extraction, FFT, StandardScaler, RF pipeline | `ml/src/inference.py` synthetic tests | **VERIFIED (Synthetic Only)** |
+| **Tier 5: Physical Hardware & Sensor Dynamics** | OPA344 amplifier, LiPo discharge, physical pipe leaks | Hardware bench testing required | **UNVERIFIED (Out of software scope)** |

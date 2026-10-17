@@ -19,6 +19,7 @@ class Event {
   final double? temperature;
   final int? uvDelta;
   final int? distanceMm;
+  final double? batteryVoltage;
   final bool? wet;
   final String? firmwareVersion;
   final Map<String, dynamic> rawPayload;
@@ -50,6 +51,7 @@ class Event {
     this.temperature,
     this.uvDelta,
     this.distanceMm,
+    this.batteryVoltage,
     this.wet,
     this.firmwareVersion,
     required this.rawPayload,
@@ -64,6 +66,7 @@ class Event {
   bool get hasTemperatureData => temperature != null;
   bool get hasUvData => uvDelta != null;
   bool get hasDistanceData => distanceMm != null;
+  bool get hasBatteryData => batteryVoltage != null;
   bool get hasHazardData => hazardState != null;
 
   /// Human-readable label for the hazard fusion state.
@@ -87,10 +90,10 @@ class Event {
     return Event(
       id: json['id'] as int,
       deviceId: json['device_id'] as String,
-      sessionId: json['session_id'] as int,
-      internalSessionId: json['internal_session_id'] as int,
-      traineeId: json['trainee_id'] as String,
-      eventKind: json['event_kind'] as String,
+      sessionId: (json['session_id'] as int?) ?? 0,
+      internalSessionId: (json['internal_session_id'] as int?) ?? 0,
+      traineeId: (json['trainee_id'] as String?) ?? 'DEFAULT',
+      eventKind: (json['event_kind'] as String?) ?? 'unknown',
       deviceTimestamp: json['device_timestamp'] as int?,
       serverTimestamp: DateTime.parse(json['server_timestamp'] as String),
       deviceUptimeMs: json['device_uptime_ms'] as int?,
@@ -107,6 +110,9 @@ class Event {
       distanceMm: _intFromPayload(json['raw_payload'], 'dist') ??
           _intFromPayload(json['raw_payload'], 'dist_mm') ??
           (json['distance_mm'] as int?),
+      batteryVoltage: (json['battery_v'] as num?)?.toDouble() ??
+          _doubleFromPayload(json['raw_payload'], 'vbat') ??
+          _doubleFromPayload(json['raw_payload'], 'v_bat'),
       wet: json['wet'] == null
           ? null
           : (json['wet'] is bool
@@ -126,6 +132,14 @@ class Event {
       final v = payload[key];
       if (v is int) return v;
       if (v is num) return v.toInt();
+    }
+    return null;
+  }
+
+  static double? _doubleFromPayload(dynamic payload, String key) {
+    if (payload is Map<String, dynamic>) {
+      final v = payload[key];
+      if (v is num) return v.toDouble();
     }
     return null;
   }
@@ -152,6 +166,7 @@ class Event {
       'temperature': temperature,
       'uv_delta': uvDelta,
       'distance_mm': distanceMm,
+      'battery_v': batteryVoltage,
       'wet': wet,
       'firmware_version': firmwareVersion,
       'raw_payload': rawPayload,

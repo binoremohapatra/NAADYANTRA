@@ -130,6 +130,15 @@ class Event(Base):
                 return int(d)
         return None
 
+    @property
+    def battery_v(self) -> Optional[float]:
+        """Extracted from raw_payload if battery voltage is reported (1S LiPo)."""
+        if self.raw_payload and isinstance(self.raw_payload, dict):
+            vb = self.raw_payload.get("vbat") or self.raw_payload.get("v_bat")
+            if vb is not None and isinstance(vb, (int, float)) and vb > 0:
+                return round(float(vb), 2)
+        return None
+
     __table_args__ = (
         Index("ix_events_device_session_time", "device_id", "session_id", "server_timestamp"),
         Index("ix_events_idempotency", "idempotency_key"),

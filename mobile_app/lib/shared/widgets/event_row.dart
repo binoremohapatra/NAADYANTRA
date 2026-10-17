@@ -474,6 +474,13 @@ class _EventDetailSheet extends StatelessWidget {
                     value: '${event.distanceMm!} mm',
                     isDark: isDark,
                   ),
+                if (event.batteryVoltage != null)
+                  _DetailRow(
+                    icon: Icons.battery_charging_full_rounded,
+                    label: 'Battery',
+                    value: '${event.batteryVoltage!.toStringAsFixed(2)} V',
+                    isDark: isDark,
+                  ),
                 if (event.hazardStateLabel != null)
                   _DetailRow(
                     icon: Icons.shield_outlined,
