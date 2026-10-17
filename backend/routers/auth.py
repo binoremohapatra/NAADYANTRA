@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from backend.database import get_db, User
+from backend.database import get_db, User, AuditLog
 from backend.auth import verify_password, create_access_token, get_password_hash, get_current_user
-from backend.schemas import LoginRequest, LoginResponse, UserResponse
+from backend.schemas import LoginRequest, LoginResponse, UserResponse, ChangePasswordRequest
 from backend.config import settings
 
 router = APIRouter()
@@ -71,3 +71,31 @@ async def logout(current_user: User = Depends(get_current_user)):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Return the authenticated user's safe profile and role."""
     return current_user
+
+
+@router.post("/api/v1/auth/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Securely rotate password for current authenticated user."""
+    if not verify_password(request.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    current_user.hashed_password = get_password_hash(request.new_password)
+    
+    audit = AuditLog(
+        user=current_user.username,
+        action="USER_PASSWORD_ROTATED",
+        resource_type="user",
+        resource_id=str(current_user.id),
+        details={"status": "success"}
+    )
+    db.add(audit)
+    db.commit()
+    
+    return {"message": "Password rotated successfully"}

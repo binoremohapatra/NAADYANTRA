@@ -56,35 +56,31 @@ void main() {
     testWidgets('renders nothing when online', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            isOfflineProvider.overrideWith((ref) => false),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: ConnectivityBanner(),
-            ),
-          ),
+          overrides: [isOfflineProvider.overrideWith((ref) => false)],
+          child: const MaterialApp(home: Scaffold(body: ConnectivityBanner())),
         ),
       );
 
-      expect(find.text('No network connection — showing cached data'), findsNothing);
+      expect(
+        find.text('No network connection — showing cached data'),
+        findsNothing,
+      );
     });
 
-    testWidgets('renders amber banner when offline', (WidgetTester tester) async {
+    testWidgets('renders amber banner when offline', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            isOfflineProvider.overrideWith((ref) => true),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: ConnectivityBanner(),
-            ),
-          ),
+          overrides: [isOfflineProvider.overrideWith((ref) => true)],
+          child: const MaterialApp(home: Scaffold(body: ConnectivityBanner())),
         ),
       );
 
-      expect(find.text('No network connection — showing cached data'), findsOneWidget);
+      expect(
+        find.text('No network connection — showing cached data'),
+        findsOneWidget,
+      );
       expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
     });
   });
@@ -131,9 +127,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(
-            home: DeviceListScreen(),
-          ),
+          child: const MaterialApp(home: DeviceListScreen()),
         ),
       );
 
@@ -155,18 +149,16 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SahaiLogo(size: 48),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: SahaiLogo(size: 48))),
       );
 
       final imageFinder = find.byType(Image);
       expect(imageFinder, findsOneWidget);
       final imageWidget = tester.widget<Image>(imageFinder);
-      expect((imageWidget.image as AssetImage).assetName,
-          'assets/icons/Haze_Guard_Logo_Static_Transparent.png');
+      expect(
+        (imageWidget.image as AssetImage).assetName,
+        'assets/icons/Haze_Guard_Logo_Static_Transparent.png',
+      );
       expect(imageWidget.width, 48);
       expect(imageWidget.height, 48);
       expect(imageWidget.fit, BoxFit.contain);
@@ -176,29 +168,34 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: HazeGuardLogo(size: 56),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: HazeGuardLogo(size: 56))),
       );
 
       final imageFinder = find.byType(Image);
       expect(imageFinder, findsOneWidget);
       final imageWidget = tester.widget<Image>(imageFinder);
-      expect((imageWidget.image as AssetImage).assetName,
-          'assets/icons/Haze_Guard_Logo_Static_Transparent.png');
+      expect(
+        (imageWidget.image as AssetImage).assetName,
+        'assets/icons/Haze_Guard_Logo_Static_Transparent.png',
+      );
       expect(imageWidget.width, 56);
       expect(imageWidget.height, 56);
       expect(imageWidget.fit, BoxFit.contain);
     });
 
-    test('OneShotAnimatedLogo points to exact Haze Guard inward animation files', () {
-      expect(OneShotAnimatedLogo.animatedAssetPath,
-          'assets/icons/Haze_Guard_Logo_Assembly_Inward.gif');
-      expect(OneShotAnimatedLogo.restingAssetPath,
-          'assets/icons/Haze_Guard_Logo_Static_Transparent.png');
-    });
+    test(
+      'OneShotAnimatedLogo points to exact Haze Guard inward animation files',
+      () {
+        expect(
+          OneShotAnimatedLogo.animatedAssetPath,
+          'assets/icons/Haze_Guard_Logo_Assembly_Inward.gif',
+        );
+        expect(
+          OneShotAnimatedLogo.restingAssetPath,
+          'assets/icons/Haze_Guard_Logo_Static_Transparent.png',
+        );
+      },
+    );
   });
 
   group('Clean SplashScreen Tests', () {
@@ -208,11 +205,7 @@ void main() {
       OneShotAnimatedLogo.resetLaunchState();
 
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: SplashScreen(),
-          ),
-        ),
+        const ProviderScope(child: MaterialApp(home: SplashScreen())),
       );
 
       // Splash shows the HAZE GUARD wordmark and a progress indicator

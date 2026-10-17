@@ -51,6 +51,9 @@ dependencies:
   # Network
   connectivity_plus: ^6.0.5
 
+  # Premium Navigation Bar
+  salomon_bottom_bar: ^3.3.2
+
   # Date/Time
   intl: ^0.20.3
 
@@ -88,7 +91,13 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/animations/backgrounds/
+    - assets/animations/backgrounds/light/
+    - assets/animations/backgrounds/dark/
+    - assets/animations/backgrounds/fallback/light/
+    - assets/animations/backgrounds/fallback/dark/
     - assets/images/
+    - assets/images/posters/
     - assets/icons/
     - assets/images/Haze_Guard_Logo_Assembly_Inward.gif
     - assets/images/Haze_Guard_Logo_Static_Transparent.png

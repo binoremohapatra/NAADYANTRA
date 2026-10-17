@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -142,8 +143,14 @@ class _LiveSonarPainter extends CustomPainter {
     // Diagonal tick marks
     for (double deg = 45; deg < 360; deg += 90) {
       final rad = deg * math.pi / 180;
-      final p1 = Offset(center.dx + math.cos(rad) * (maxRadius * 0.2), center.dy + math.sin(rad) * (maxRadius * 0.2));
-      final p2 = Offset(center.dx + math.cos(rad) * maxRadius, center.dy + math.sin(rad) * maxRadius);
+      final p1 = Offset(
+        center.dx + math.cos(rad) * (maxRadius * 0.2),
+        center.dy + math.sin(rad) * (maxRadius * 0.2),
+      );
+      final p2 = Offset(
+        center.dx + math.cos(rad) * maxRadius,
+        center.dy + math.sin(rad) * maxRadius,
+      );
       canvas.drawLine(p1, p2, crossPaint);
     }
 
@@ -194,7 +201,8 @@ class _LiveSonarPainter extends CustomPainter {
 
       path.moveTo(0, baseY);
       for (double x = 0; x <= size.width; x += 8) {
-        final y = baseY + math.sin((x * freq) + speed) * amp * math.cos(x * 0.005);
+        final y =
+            baseY + math.sin((x * freq) + speed) * amp * math.cos(x * 0.005);
         path.lineTo(x, y);
       }
 

@@ -108,7 +108,8 @@ class DeviceRepository {
       // If status endpoint returns error (500 or 404), fall back to getDevice metadata
       try {
         final device = await getDevice(deviceId, useCache: useCache);
-        final isOnline = device.lastSeenAt != null &&
+        final isOnline =
+            device.lastSeenAt != null &&
             DateTime.now().difference(device.lastSeenAt!).inMinutes < 5;
         final fallbackStatus = DeviceStatus(
           deviceId: device.deviceId,
@@ -133,20 +134,24 @@ class DeviceRepository {
   }
 
   Future<List<Event>> getDeviceEvents(
-    String deviceId, {
+    String? deviceId, {
     int limit = 20,
     bool useCache = true,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'page_size': limit,
+      };
+      if (deviceId != null && deviceId.isNotEmpty && deviceId != '—' && deviceId != 'ALL') {
+        queryParams['device_id'] = deviceId;
+      }
       final response = await _apiClient.get(
         ApiConstants.events,
-        queryParameters: <String, dynamic>{
-          'device_id': deviceId,
-          'page_size': limit,
-        },
+        queryParameters: queryParams,
       );
       final data = response.data;
-      final List<dynamic> items = data is Map<String, dynamic> && data['items'] is List
+      final List<dynamic> items =
+          data is Map<String, dynamic> && data['items'] is List
           ? data['items'] as List<dynamic>
           : (data is List<dynamic> ? data : <dynamic>[]);
       final events = items
@@ -157,7 +162,7 @@ class DeviceRepository {
       }
       return events;
     } on NetworkException {
-      if (useCache) {
+      if (useCache && deviceId != null && deviceId.isNotEmpty && deviceId != '—') {
         final cached = await _cache.getCachedEventsByDeviceId(
           deviceId,
           limit: limit,
@@ -190,8 +195,8 @@ class DeviceRepository {
       final data = response.data;
       final List<dynamic> items =
           data is Map<String, dynamic> && data['items'] is List
-              ? data['items'] as List<dynamic>
-              : (data is List<dynamic> ? data : <dynamic>[]);
+          ? data['items'] as List<dynamic>
+          : (data is List<dynamic> ? data : <dynamic>[]);
       final summaries = items
           .map((e) => SessionSummary.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -234,13 +239,16 @@ class DeviceRepository {
           'stale_after_seconds': staleAfterSeconds,
         },
       );
-      return LatestTelemetry.fromJson(
-          response.data as Map<String, dynamic>);
+      return LatestTelemetry.fromJson(response.data as Map<String, dynamic>);
     } catch (_) {
       // If /telemetry/latest endpoint returns 404 (not yet deployed) or errors,
       // fallback to standard getDeviceEvents(limit: 1) which is supported on all backend versions.
       try {
-        final events = await getDeviceEvents(deviceId, limit: 1, useCache: useCache);
+        final events = await getDeviceEvents(
+          deviceId,
+          limit: 1,
+          useCache: useCache,
+        );
         if (events.isNotEmpty) {
           final event = events.first;
           final staleness = DateTime.now()
@@ -263,8 +271,10 @@ class DeviceRepository {
         );
       } catch (innerError) {
         if (useCache) {
-          final cached =
-              await _cache.getCachedEventsByDeviceId(deviceId, limit: 1);
+          final cached = await _cache.getCachedEventsByDeviceId(
+            deviceId,
+            limit: 1,
+          );
           if (cached.isNotEmpty) {
             final event = Event.fromJson(cached.first);
             return LatestTelemetry(
@@ -298,10 +308,15 @@ class DeviceRepository {
     required double leak,
     required String alert,
     required double temp,
-    int session = 1,
-    String trainee = 'TR-01',
+    int session = 999999,
+    String trainee = 'TR-SIM-DEMO',
     String? deviceKey,
   }) async {
+    // SECURITY & DATA INTEGRITY GUARD [P0]:
+    // Never allow synthetic simulation frames to pollute the live production cloud database.
+    if (_apiClient.dio.options.baseUrl.contains('onrender.com')) {
+      return false;
+    }
     final effectiveKey = deviceKey ?? 'dev-key-123';
     try {
       await _apiClient.post(

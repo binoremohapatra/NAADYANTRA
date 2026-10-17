@@ -8,6 +8,8 @@ import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/widgets/status_pill.dart';
+import '../../../shared/widgets/timeline_node.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Events Screen — chronological event/alert history browser
@@ -15,11 +17,13 @@ import '../../../shared/widgets/status_pill.dart';
 
 enum _EventSeverityFilter { all, danger, caution, normal }
 
-// Provider for events browsing (cross-device, uses selected device or all)
-final _eventsScreenProvider = FutureProvider.autoDispose<List<Event>>((ref) async {
-  final deviceId = ref.watch(selectedDeviceIdProvider) ?? 'SIH-DEV-01';
+// Provider for events browsing (cross-device, uses active device or all)
+final _eventsScreenProvider = FutureProvider.autoDispose<List<Event>>((
+  ref,
+) async {
+  final activeDeviceId = ref.watch(activeDeviceIdProvider);
   final repo = ref.watch(deviceRepositoryProvider);
-  return repo.getDeviceEvents(deviceId, limit: 100);
+  return repo.getDeviceEvents(activeDeviceId, limit: 100);
 });
 
 class EventsScreen extends ConsumerStatefulWidget {
@@ -52,8 +56,8 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(_eventsScreenProvider);
-    final selectedDeviceId =
-        ref.watch(selectedDeviceIdProvider) ?? 'SIH-DEV-01';
+    final activeDeviceId = ref.watch(activeDeviceIdProvider);
+    final selectedDeviceId = activeDeviceId ?? 'ALL REGISTERED NODES';
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -92,113 +96,139 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Severity filter bar ──
-          Container(
-            color: isDark ? AppColors.darkCanvas : AppColors.industrialIvory,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _EventSeverityFilter.values.map((f) {
-                  final isSelected = _filter == f;
-                  Color chipColor;
-                  switch (f) {
-                    case _EventSeverityFilter.danger:
-                      chipColor = AppColors.alertDanger;
-                    case _EventSeverityFilter.caution:
-                      chipColor = AppColors.alertCaution;
-                    case _EventSeverityFilter.normal:
-                      chipColor = AppColors.alertOk;
-                    default:
-                      chipColor = AppColors.burntOrange;
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.events,
+        lightScrimOpacity: 0.88,
+        darkScrimOpacity: 0.70,
+        child: Column(
+          children: [
+            // ── Severity filter bar ──
+            Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _EventSeverityFilter.values.map((f) {
+                    final isSelected = _filter == f;
+                    Color chipColor;
+                    switch (f) {
+                      case _EventSeverityFilter.danger:
+                        chipColor = AppColors.alertDanger;
+                      case _EventSeverityFilter.caution:
+                        chipColor = AppColors.alertCaution;
+                      case _EventSeverityFilter.normal:
+                        chipColor = AppColors.alertOk;
+                      default:
+                        chipColor = AppColors.burntOrange;
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _SeverityFilterChip(
+                        label: _filterLabel(f),
+                        selected: isSelected,
+                        color: isSelected ? chipColor : null,
+                        onTap: () => setState(() => _filter = f),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+            Divider(
+              height: 1,
+              color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+            ),
+
+            // ── Event list ──
+            Expanded(
+              child: eventsAsync.when(
+                loading: () => const IndustrialLoadingView(
+                  message: 'Loading event timeline...',
+                ),
+                error: (err, _) => IndustrialErrorView(
+                  title: 'Event Timeline Unavailable',
+                  message: 'Could not retrieve event history. Check backend connectivity.',
+                  onRetry: () => ref.invalidate(_eventsScreenProvider),
+                ),
+                data: (events) {
+                  final filtered = _applyFilter(events);
+
+                  if (events.isEmpty) {
+                    return IndustrialEmptyView(
+                      icon: Icons.timeline_outlined,
+                      title: 'No Events Recorded',
+                      message:
+                          'No diagnostic events have been recorded for $selectedDeviceId yet.\n'
+                          'Press the BOOT button on the device to start a session.',
+                      actionLabel: 'Refresh',
+                      onAction: () => ref.invalidate(_eventsScreenProvider),
+                    );
                   }
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _SeverityFilterChip(
-                      label: _filterLabel(f),
-                      selected: isSelected,
-                      color: isSelected ? chipColor : null,
-                      onTap: () => setState(() => _filter = f),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
 
-          Divider(
-            height: 1,
-            color: isDark ? AppColors.darkBorder : AppColors.warmStone,
-          ),
+                  if (filtered.isEmpty) {
+                    return IndustrialEmptyView(
+                      icon: Icons.filter_list_off_rounded,
+                      title: 'No Matching Events',
+                      message: 'No events match the current severity filter.',
+                      actionLabel: 'Show All',
+                      onAction: () =>
+                          setState(() => _filter = _EventSeverityFilter.all),
+                    );
+                  }
 
-          // ── Event list ──
-          Expanded(
-            child: eventsAsync.when(
-              loading: () => const IndustrialLoadingView(
-                message: 'Loading event timeline...',
-              ),
-              error: (err, _) => IndustrialErrorView(
-                title: 'Event Timeline Unavailable',
-                message:
-                    'Could not retrieve event history. Check backend connectivity.',
-                onRetry: () => ref.invalidate(_eventsScreenProvider),
-              ),
-              data: (events) {
-                final filtered = _applyFilter(events);
+                  return RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(_eventsScreenProvider),
+                    color: AppColors.burntOrange,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final event = filtered[index];
+                        Color alertColor;
+                        switch (event.alert) {
+                          case 'DANGER':
+                            alertColor = AppColors.alertDanger;
+                            break;
+                          case 'CAUTION':
+                          case 'WARNING':
+                            alertColor = AppColors.alertCaution;
+                            break;
+                          case 'NORMAL':
+                          case null:
+                            alertColor = AppColors.alertOk;
+                            break;
+                          default:
+                            alertColor = AppColors.warmGraphite;
+                        }
 
-                if (events.isEmpty) {
-                  return IndustrialEmptyView(
-                    icon: Icons.timeline_outlined,
-                    title: 'No Events Recorded',
-                    message:
-                        'No diagnostic events have been recorded for $selectedDeviceId yet.\n'
-                        'Press the BOOT button on the device to start a session.',
-                    actionLabel: 'Refresh',
-                    onAction: () => ref.invalidate(_eventsScreenProvider),
-                  );
-                }
-
-                if (filtered.isEmpty) {
-                  return IndustrialEmptyView(
-                    icon: Icons.filter_list_off_rounded,
-                    title: 'No Matching Events',
-                    message: 'No events match the current severity filter.',
-                    actionLabel: 'Show All',
-                    onAction: () => setState(
-                      () => _filter = _EventSeverityFilter.all,
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(_eventsScreenProvider),
-                  color: AppColors.burntOrange,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      return StaggeredEntrance(
-                        index: index.clamp(0, 15), // cap stagger at 15
-                        child: _EventTile(
-                          event: filtered[index],
-                          onTap: () => _showEventDetail(
-                            context,
-                            filtered[index],
-                            isDark,
+                        return StaggeredEntrance(
+                          index: index.clamp(0, 15),
+                          child: TimelineNode(
+                            isFirst: index == 0,
+                            isLast: index == filtered.length - 1,
+                            nodeColor: alertColor,
+                            nodeIcon: _eventIcon(event),
+                            timeLabel: DateFormat('HH:mm:ss')
+                                .format(event.serverTimestamp),
+                            tag: event.deviceId,
+                            child: _EventTile(
+                              event: event,
+                              onTap: () =>
+                                  _showEventDetail(context, event, isDark),
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -216,11 +246,29 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     }
   }
 
-  void _showEventDetail(
-    BuildContext context,
-    Event event,
-    bool isDark,
-  ) {
+  IconData _eventIcon(Event event) {
+    if (event.alert == 'DANGER') {
+      return Icons.warning_rounded;
+    }
+    if (event.alert == 'CAUTION') {
+      return Icons.warning_amber_rounded;
+    }
+    if (event.eventKind == 'session_start') {
+      return Icons.play_circle_outline_rounded;
+    }
+    if (event.eventKind == 'session_end') {
+      return Icons.stop_circle_outlined;
+    }
+    if (event.hasAcousticData) {
+      return Icons.graphic_eq_rounded;
+    }
+    if (event.hasGasData) {
+      return Icons.air_rounded;
+    }
+    return Icons.sensors_rounded;
+  }
+
+  void _showEventDetail(BuildContext context, Event event, bool isDark) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -436,12 +484,24 @@ class _EventTile extends StatelessWidget {
   }
 
   IconData _eventIcon(Event event) {
-    if (event.alert == 'DANGER') return Icons.warning_rounded;
-    if (event.alert == 'CAUTION') return Icons.warning_amber_rounded;
-    if (event.eventKind == 'session_start') return Icons.play_circle_outline_rounded;
-    if (event.eventKind == 'session_end') return Icons.stop_circle_outlined;
-    if (event.hasAcousticData) return Icons.graphic_eq_rounded;
-    if (event.hasGasData) return Icons.air_rounded;
+    if (event.alert == 'DANGER') {
+      return Icons.warning_rounded;
+    }
+    if (event.alert == 'CAUTION') {
+      return Icons.warning_amber_rounded;
+    }
+    if (event.eventKind == 'session_start') {
+      return Icons.play_circle_outline_rounded;
+    }
+    if (event.eventKind == 'session_end') {
+      return Icons.stop_circle_outlined;
+    }
+    if (event.hasAcousticData) {
+      return Icons.graphic_eq_rounded;
+    }
+    if (event.hasGasData) {
+      return Icons.air_rounded;
+    }
     return Icons.sensors_rounded;
   }
 
@@ -492,189 +552,180 @@ class _EventDetailSheet extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             border: Border.all(
               color: isDark ? AppColors.darkBorder : AppColors.warmStone,
               width: 1,
             ),
           ),
-          child: Column(
-            children: [
-              // Drag handle
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBorder : AppColors.warmStone,
-                  borderRadius: BorderRadius.circular(2),
+          child: NaadyantraAnimatedBackground(
+            kind: NaadyantraBackgroundKind.eventDetails,
+            lightScrimOpacity: 0.90,
+            darkScrimOpacity: 0.75,
+            child: Column(
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
 
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        event.eventName ?? 'Event Detail',
-                        style: AppTypography.spaceGrotesk(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.carbon,
-                        ),
-                      ),
-                    ),
-                    if (event.alert != null) ...[
-                      StatusPill(
-                        label: event.alert!,
-                        type: event.alert == 'DANGER'
-                            ? StatusType.danger
-                            : event.alert == 'CAUTION'
-                                ? StatusType.caution
-                                : StatusType.ok,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              Divider(
-                height: 20,
-                color: isDark ? AppColors.darkBorder : AppColors.warmStone,
-              ),
-
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                  child: Column(
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Row(
                     children: [
-                      _DetailSection(
-                        isDark: isDark,
-                        title: 'IDENTIFICATION',
-                        rows: [
-                          ('Event ID', '#${event.id}', true),
-                          ('Device', event.deviceId, true),
-                          ('Kind', event.eventKind, false),
-                          ('Trainee', event.traineeId, false),
-                        ],
-                      ),
-                      _DetailSection(
-                        isDark: isDark,
-                        title: 'TIMESTAMP',
-                        rows: [
-                          (
-                            'Server UTC',
-                            _fmtFull(event.serverTimestamp),
-                            true
+                      Expanded(
+                        child: Text(
+                          event.eventName ?? 'Event Detail',
+                          style: AppTypography.spaceGrotesk(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.carbon,
                           ),
-                          if (event.deviceTimestamp != null)
-                            (
-                              'Device Tick',
-                              '${event.deviceTimestamp}',
-                              true
-                            ),
-                          if (event.deviceUptimeMs != null)
-                            (
-                              'Uptime',
-                              '${(event.deviceUptimeMs! / 1000).toStringAsFixed(1)} s',
-                              false
-                            ),
-                        ],
+                        ),
                       ),
-                      if (event.hasAcousticData)
-                        _DetailSection(
-                          isDark: isDark,
-                          title: 'ACOUSTIC',
-                          rows: [
-                            if (event.rms != null)
-                              ('RMS', '${event.rms!.toStringAsFixed(2)} ADC', true),
-                            if (event.modelLabel != null)
-                              ('Model Label', event.modelLabel!, false),
-                            if (event.leakProbability != null)
-                              (
-                                'Leak Prob.',
-                                '${(event.leakProbability! * 100).toStringAsFixed(1)}%',
-                                true
-                              ),
-                          ],
+                      if (event.alert != null) ...[
+                        StatusPill(
+                          label: event.alert!,
+                          type: event.alert == 'DANGER'
+                              ? StatusType.danger
+                              : event.alert == 'CAUTION'
+                              ? StatusType.caution
+                              : StatusType.ok,
                         ),
-                      if (event.hasGasData)
-                        _DetailSection(
-                          isDark: isDark,
-                          title: 'GAS SENSOR',
-                          rows: [
-                            if (event.gasDelta != null)
-                              ('Delta', '${event.gasDelta}', true),
-                            if (event.gasRatio != null)
-                              (
-                                'Ratio',
-                                event.gasRatio!.toStringAsFixed(3),
-                                true
-                              ),
-                          ],
-                        ),
-                      if (event.hasMoistureData || event.hasTemperatureData)
-                        _DetailSection(
-                          isDark: isDark,
-                          title: 'ENVIRONMENT',
-                          rows: [
-                            if (event.wet != null)
-                              (
-                                'Moisture',
-                                event.wet! ? 'WET' : 'DRY',
-                                false
-                              ),
-                            if (event.temperature != null)
-                              (
-                                'Temperature',
-                                '${event.temperature!.toStringAsFixed(1)} °C',
-                                true
-                              ),
-                          ],
-                        ),
-                      if (event.hasHazardData)
-                        _DetailSection(
-                          isDark: isDark,
-                          title: 'HAZARD FUSION (TinyML)',
-                          rows: [
-                            if (event.hazardStateLabel != null)
-                              (
-                                'State',
-                                event.hazardStateLabel!,
-                                false
-                              ),
-                            if (event.hazardConf != null)
-                              (
-                                'Confidence',
-                                '${event.hazardConf}/100',
-                                true
-                              ),
-                          ],
-                        ),
-                      if (event.cause != null || event.alert != null)
-                        _DetailSection(
-                          isDark: isDark,
-                          title: 'ALERT',
-                          rows: [
-                            if (event.alert != null)
-                              ('Severity', event.alert!, false),
-                            if (event.cause != null)
-                              ('Cause', event.cause!, false),
-                          ],
-                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ],
+
+                Divider(
+                  height: 20,
+                  color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                ),
+
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                    child: Column(
+                      children: [
+                        _DetailSection(
+                          isDark: isDark,
+                          title: 'IDENTIFICATION',
+                          rows: [
+                            ('Event ID', '#${event.id}', true),
+                            ('Device', event.deviceId, true),
+                            ('Kind', event.eventKind, false),
+                            ('Trainee', event.traineeId, false),
+                          ],
+                        ),
+                        _DetailSection(
+                          isDark: isDark,
+                          title: 'TIMESTAMP',
+                          rows: [
+                            (
+                              'Server UTC',
+                              _fmtFull(event.serverTimestamp),
+                              true,
+                            ),
+                            if (event.deviceTimestamp != null)
+                              ('Device Tick', '${event.deviceTimestamp}', true),
+                            if (event.deviceUptimeMs != null)
+                              (
+                                'Uptime',
+                                '${(event.deviceUptimeMs! / 1000).toStringAsFixed(1)} s',
+                                false,
+                              ),
+                          ],
+                        ),
+                        if (event.hasAcousticData)
+                          _DetailSection(
+                            isDark: isDark,
+                            title: 'ACOUSTIC',
+                            rows: [
+                              if (event.rms != null)
+                                (
+                                  'RMS',
+                                  '${event.rms!.toStringAsFixed(2)} ADC',
+                                  true,
+                                ),
+                              if (event.modelLabel != null)
+                                ('Model Label', event.modelLabel!, false),
+                              if (event.leakProbability != null)
+                                (
+                                  'Leak Prob.',
+                                  '${(event.leakProbability! * 100).toStringAsFixed(1)}%',
+                                  true,
+                                ),
+                            ],
+                          ),
+                        if (event.hasGasData)
+                          _DetailSection(
+                            isDark: isDark,
+                            title: 'GAS SENSOR',
+                            rows: [
+                              if (event.gasDelta != null)
+                                ('Delta', '${event.gasDelta}', true),
+                              if (event.gasRatio != null)
+                                (
+                                  'Ratio',
+                                  event.gasRatio!.toStringAsFixed(3),
+                                  true,
+                                ),
+                            ],
+                          ),
+                        if (event.hasMoistureData || event.hasTemperatureData)
+                          _DetailSection(
+                            isDark: isDark,
+                            title: 'ENVIRONMENT',
+                            rows: [
+                              if (event.wet != null)
+                                ('Moisture', event.wet! ? 'WET' : 'DRY', false),
+                              if (event.temperature != null)
+                                (
+                                  'Temperature',
+                                  '${event.temperature!.toStringAsFixed(1)} °C',
+                                  true,
+                                ),
+                            ],
+                          ),
+                        if (event.hasHazardData)
+                          _DetailSection(
+                            isDark: isDark,
+                            title: 'HAZARD FUSION (TinyML)',
+                            rows: [
+                              if (event.hazardStateLabel != null)
+                                ('State', event.hazardStateLabel!, false),
+                              if (event.hazardConf != null)
+                                ('Confidence', '${event.hazardConf}/100', true),
+                            ],
+                          ),
+                        if (event.cause != null || event.alert != null)
+                          _DetailSection(
+                            isDark: isDark,
+                            title: 'ALERT',
+                            rows: [
+                              if (event.alert != null)
+                                ('Severity', event.alert!, false),
+                              if (event.cause != null)
+                                ('Cause', event.cause!, false),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -711,14 +762,18 @@ class _DetailSection extends StatelessWidget {
           style: AppTypography.inter(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.warmGraphite,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : AppColors.warmGraphite,
             letterSpacing: 1.2,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurfaceElevated : AppColors.industrialIvory,
+            color: isDark
+                ? AppColors.darkSurfaceElevated
+                : AppColors.industrialIvory,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isDark ? AppColors.darkBorder : AppColors.warmStone,
@@ -771,7 +826,9 @@ class _DetailSection extends StatelessWidget {
                   if (!isLast)
                     Divider(
                       height: 1,
-                      color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                      color: isDark
+                          ? AppColors.darkBorder
+                          : AppColors.warmStone,
                     ),
                 ],
               );
@@ -830,8 +887,8 @@ class _SeverityFilterChip extends StatelessWidget {
             color: selected
                 ? AppColors.pureWhite
                 : (isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.warmGraphite),
+                      ? AppColors.darkTextSecondary
+                      : AppColors.warmGraphite),
           ),
         ),
       ),

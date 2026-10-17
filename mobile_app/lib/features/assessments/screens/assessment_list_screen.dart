@@ -12,7 +12,7 @@ import '../../../shared/widgets/status_pill.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/tactile_pressable.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 final assessmentsProvider =
     FutureProvider.autoDispose<PaginatedResponse<Assessment>>((ref) async {
@@ -40,115 +40,122 @@ class AssessmentListScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.blueprintIso,
-        intensity: 0.75,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.assessments,
+        lightScrimOpacity: 0.88,
+        darkScrimOpacity: 0.70,
         child: assessmentsAsync.when(
-        data: (paginatedResponse) {
-          final items = paginatedResponse.items;
-          if (items.isEmpty) {
-            return IndustrialEmptyView(
-              icon: Icons.assignment_turned_in_outlined,
-              title: 'No Assessments On Record',
-              message:
-                  'Vocational evaluation rubrics will appear here once submitted by a certified trainer.',
-              actionLabel: 'Check for Records',
-              onAction: () => ref.invalidate(assessmentsProvider),
-            );
-          }
+          data: (paginatedResponse) {
+            final items = paginatedResponse.items;
+            if (items.isEmpty) {
+              return IndustrialEmptyView(
+                icon: Icons.assignment_turned_in_outlined,
+                title: 'No Assessments On Record',
+                message: 'Vocational evaluation rubrics will appear here once submitted by a certified trainer.',
+                actionLabel: 'Check for Records',
+                onAction: () => ref.invalidate(assessmentsProvider),
+              );
+            }
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            children: [
-              // Metric Summary Card
-              StaggeredEntrance(
-                index: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkSurface : AppColors.pureWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              children: [
+                // Metric Summary Card
+                StaggeredEntrance(
+                  index: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
                       color: isDark
-                          ? AppColors.darkBorder
-                          : AppColors.warmStone,
+                          ? AppColors.darkSurface
+                          : AppColors.pureWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.warmStone,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.burntOrange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.burntOrange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.workspace_premium_rounded,
+                            color: AppColors.burntOrange,
+                            size: 24,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.workspace_premium_rounded,
-                          color: AppColors.burntOrange,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${items.length} EVALUATIONS ARCHIVED',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: AppColors.warmGraphite,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${items.length} EVALUATIONS ARCHIVED',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.warmGraphite,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Pipeline Leak & Valve Inspection Competency',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Pipeline Leak & Valve Inspection Competency',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              // Assessment Rubric Cards
-              ...items.asMap().entries.map((entry) {
-                final index = entry.key;
-                final assessment = entry.value;
+                // Assessment Rubric Cards
+                ...items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final assessment = entry.value;
 
-                return StaggeredEntrance(
-                  index: index + 1,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: TactilePressable(
-                      onTap: () =>
-                          context.push('/assessments/${assessment.assessmentId}'),
-                      child: _buildAssessmentCard(context, assessment, isDark),
+                  return StaggeredEntrance(
+                    index: index + 1,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: TactilePressable(
+                        onTap: () => context.push(
+                          '/assessments/${assessment.assessmentId}',
+                        ),
+                        child: _buildAssessmentCard(
+                          context,
+                          assessment,
+                          isDark,
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 24),
-            ],
-          );
-        },
-        loading: () => const IndustrialLoadingView(
-          message: 'Loading trainee evaluation rubrics...',
+                  );
+                }),
+                const SizedBox(height: 24),
+              ],
+            );
+          },
+          loading: () => const IndustrialLoadingView(
+            message: 'Loading trainee evaluation rubrics...',
+          ),
+          error: (error, _) => IndustrialErrorView(
+            title: 'Assessments Unavailable',
+            message: error.toString(),
+            onRetry: () => ref.invalidate(assessmentsProvider),
+          ),
         ),
-        error: (error, _) => IndustrialErrorView(
-          title: 'Assessments Unavailable',
-          message: error.toString(),
-          onRetry: () => ref.invalidate(assessmentsProvider),
-        ),
-      ),
       ),
     );
   }

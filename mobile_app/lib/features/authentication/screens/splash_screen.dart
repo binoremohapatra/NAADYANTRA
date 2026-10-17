@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/one_shot_animated_logo.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SPLASH SCREEN — Haze Guard One-Time Logo Assembly Launch Experience
@@ -99,60 +100,66 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     return Scaffold(
       backgroundColor: bg,
-      body: AnimatedBuilder(
-        animation: _fadeController,
-        builder: (context, child) {
-          return Opacity(
-            // Fade in via _fadeIn then fade out via _fadeOut
-            opacity: _fadeController.value <= 0.5
-                ? _fadeIn.value
-                : _fadeOut.value,
-            child: child,
-          );
-        },
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // One-time Haze Guard logo inward assembly animation.
-              // Plays 55 frames inward from outside → seamlessly locks into resting mark → static PNG.
-              OneShotAnimatedLogo(
-                size: 160,
-                animationDuration: const Duration(milliseconds: 2000),
-                holdDuration: const Duration(milliseconds: 400),
-                onCompleted: _onLogoCompleted,
-              ),
-
-              const SizedBox(height: 36),
-
-              // Subtle, honest status text — no decorative effects
-              Text(
-                'HAZE GUARD',
-                style: AppTypography.spaceGrotesk(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.4,
-                  color: isDark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.warmGraphite,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.splash,
+        lightScrimOpacity: 0.80,
+        darkScrimOpacity: 0.60,
+        child: AnimatedBuilder(
+          animation: _fadeController,
+          builder: (context, child) {
+            return Opacity(
+              // Fade in via _fadeIn then fade out via _fadeOut
+              opacity: _fadeController.value <= 0.5
+                  ? _fadeIn.value
+                  : _fadeOut.value,
+              child: child,
+            );
+          },
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // One-time Haze Guard logo inward assembly animation.
+                // Plays 55 frames inward from outside → seamlessly locks into resting mark → static PNG.
+                OneShotAnimatedLogo(
+                  size: 160,
+                  animationDuration: const Duration(milliseconds: 2000),
+                  holdDuration: const Duration(milliseconds: 400),
+                  onCompleted: _onLogoCompleted,
                 ),
-              ),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 36),
 
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.6,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.burntOrange,
+                // Subtle, honest status text — no decorative effects
+                Text(
+                  'HAZE GUARD',
+                  style: AppTypography.spaceGrotesk(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2.4,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.warmGraphite,
                   ),
-                  backgroundColor:
-                      isDark ? AppColors.darkBorder : AppColors.warmStone,
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.burntOrange,
+                    ),
+                    backgroundColor: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.warmStone,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

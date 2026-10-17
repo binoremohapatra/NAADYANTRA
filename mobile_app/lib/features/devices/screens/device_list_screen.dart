@@ -12,6 +12,7 @@ import '../../../shared/motion/pulsing_beacon.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/status_pill.dart';
 import '../../../shared/widgets/state_views.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Device List Screen — premium device inventory with search, filter, sort
@@ -38,7 +39,9 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      setState(
+        () => _searchQuery = _searchController.text.trim().toLowerCase(),
+      );
     });
   }
 
@@ -52,8 +55,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
     var filtered = devices.where((d) {
       // Search
       if (_searchQuery.isNotEmpty) {
-        final matchName =
-            (d.name ?? '').toLowerCase().contains(_searchQuery);
+        final matchName = (d.name ?? '').toLowerCase().contains(_searchQuery);
         final matchId = d.deviceId.toLowerCase().contains(_searchQuery);
         if (!matchName && !matchId) return false;
       }
@@ -78,8 +80,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
           final bTime = b.lastSeenAt ?? DateTime.fromMillisecondsSinceEpoch(0);
           return bTime.compareTo(aTime); // newest first
         case _DeviceSort.name:
-          return (a.name ?? a.deviceId)
-              .compareTo(b.name ?? b.deviceId);
+          return (a.name ?? a.deviceId).compareTo(b.name ?? b.deviceId);
       }
     });
 
@@ -89,11 +90,14 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
   @override
   Widget build(BuildContext context) {
     final devicesAsync = ref.watch(devicesProvider);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -103,9 +107,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
               style: AppTypography.spaceGrotesk(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: isDark
-                    ? AppColors.darkTextPrimary
-                    : AppColors.carbon,
+                color: isDark ? AppColors.pureWhite : AppColors.carbon,
                 letterSpacing: 0.5,
               ),
             ),
@@ -113,9 +115,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
               'Registered hardware nodes',
               style: AppTypography.inter(
                 fontSize: 10,
-                color: isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.warmGraphite,
+                color: isDark ? AppColors.subtleGray : AppColors.warmGraphite,
                 letterSpacing: 0.3,
               ),
             ),
@@ -146,142 +146,181 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Search + Filter bar ──
-          Container(
-            color: isDark ? AppColors.darkCanvas : AppColors.industrialIvory,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Column(
-              children: [
-                // Search field
-                TextField(
-                  controller: _searchController,
-                  style: AppTypography.inter(
-                    fontSize: 14,
-                    color: isDark
-                        ? AppColors.darkTextPrimary
-                        : AppColors.carbon,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or device ID...',
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      size: 18,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.deviceInventory,
+        lightScrimOpacity: 0.58,
+        darkScrimOpacity: 0.50,
+        child: Column(
+          children: [
+            // ── Search + Filter bar ──
+            Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Column(
+                children: [
+                  // Search field
+                  TextField(
+                    controller: _searchController,
+                    style: AppTypography.inter(
+                      fontSize: 14,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.carbon,
                     ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 16),
-                            onPressed: () {
-                              _searchController.clear();
+                    cursorColor: AppColors.burntOrange,
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or device ID...',
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? AppColors.subtleGray
+                            : AppColors.warmGraphite,
+                        fontSize: 13,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        size: 18,
+                        color: isDark
+                            ? AppColors.softSand
+                            : AppColors.warmGraphite,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: isDark
+                                    ? AppColors.softSand
+                                    : AppColors.warmGraphite,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xF21C1E20)
+                          : AppColors.pureWhite.withValues(alpha: 0.95),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF3A3D40)
+                              : AppColors.warmStone,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: AppColors.burntOrange,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      isDense: true,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Filter chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _DeviceFilter.values.map((f) {
+                        final isSelected = _filter == f;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _FilterChip(
+                            label: _filterLabel(f),
+                            selected: isSelected,
+                            onTap: () => setState(() => _filter = f),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Divider(
+              height: 1,
+              color: isDark ? const Color(0xFF2E2C29) : AppColors.warmStone,
+            ),
+
+            // ── Device list ──
+            Expanded(
+              child: devicesAsync.when(
+                loading: () => const IndustrialLoadingView(
+                  message: 'Loading registered devices...',
+                ),
+                error: (err, _) => IndustrialErrorView(
+                  title: 'Device Inventory Unavailable',
+                  message: 'Could not retrieve device list from backend. Check your connection.',
+                  onRetry: () => ref.invalidate(devicesProvider),
+                ),
+                data: (response) {
+                  final devices = response.items;
+                  final filtered = _applyFilterSort(devices);
+
+                  if (devices.isEmpty) {
+                    return IndustrialEmptyView(
+                      icon: Icons.hub_outlined,
+                      title: 'No Devices Registered',
+                      message: 'No hardware nodes have been registered with the backend yet.\nConfigure your ESP32 device and connect it to the network.',
+                      actionLabel: 'Refresh',
+                      onAction: () => ref.invalidate(devicesProvider),
+                    );
+                  }
+
+                  if (filtered.isEmpty) {
+                    return IndustrialEmptyView(
+                      icon: Icons.search_off_rounded,
+                      title: 'No Matching Devices',
+                      message:
+                          'No devices match your current search or filter.',
+                      actionLabel: 'Clear Filters',
+                      onAction: () {
+                        _searchController.clear();
+                        setState(() => _filter = _DeviceFilter.all);
+                      },
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async => ref.invalidate(devicesProvider),
+                    color: AppColors.burntOrange,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final device = filtered[index];
+                        return StaggeredEntrance(
+                          index: index,
+                          child: _DeviceCard(
+                            device: device,
+                            onTap: () {
+                              ref
+                                      .read(selectedDeviceIdProvider.notifier)
+                                      .state =
+                                  device.deviceId;
+                              context.push('/devices/${device.deviceId}');
                             },
-                          )
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
+                          ),
+                        );
+                      },
                     ),
-                    isDense: true,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // Filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _DeviceFilter.values.map((f) {
-                      final isSelected = _filter == f;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _FilterChip(
-                          label: _filterLabel(f),
-                          selected: isSelected,
-                          onTap: () => setState(() => _filter = f),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Divider(
-            height: 1,
-            color: isDark ? AppColors.darkBorder : AppColors.warmStone,
-          ),
-
-          // ── Device list ──
-          Expanded(
-            child: devicesAsync.when(
-              loading: () => const IndustrialLoadingView(
-                message: 'Loading registered devices...',
-              ),
-              error: (err, _) => IndustrialErrorView(
-                title: 'Device Inventory Unavailable',
-                message:
-                    'Could not retrieve device list from backend. Check your connection.',
-                onRetry: () => ref.invalidate(devicesProvider),
-              ),
-              data: (response) {
-                final devices = response.items;
-                final filtered = _applyFilterSort(devices);
-
-                if (devices.isEmpty) {
-                  return IndustrialEmptyView(
-                    icon: Icons.hub_outlined,
-                    title: 'No Devices Registered',
-                    message:
-                        'No hardware nodes have been registered with the backend yet.\nConfigure your ESP32 device and connect it to the network.',
-                    actionLabel: 'Refresh',
-                    onAction: () => ref.invalidate(devicesProvider),
                   );
-                }
-
-                if (filtered.isEmpty) {
-                  return IndustrialEmptyView(
-                    icon: Icons.search_off_rounded,
-                    title: 'No Matching Devices',
-                    message:
-                        'No devices match your current search or filter.',
-                    actionLabel: 'Clear Filters',
-                    onAction: () {
-                      _searchController.clear();
-                      setState(() => _filter = _DeviceFilter.all);
-                    },
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(devicesProvider),
-                  color: AppColors.burntOrange,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final device = filtered[index];
-                      return StaggeredEntrance(
-                        index: index,
-                        child: _DeviceCard(
-                          device: device,
-                          onTap: () {
-                            ref
-                                .read(selectedDeviceIdProvider.notifier)
-                                .state = device.deviceId;
-                            context.push('/devices/${device.deviceId}');
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -328,9 +367,7 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.burntOrange
-              : (isDark
-                  ? AppColors.darkSurfaceElevated
-                  : AppColors.pureWhite),
+              : (isDark ? AppColors.darkSurfaceElevated : AppColors.pureWhite),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
@@ -347,8 +384,8 @@ class _FilterChip extends StatelessWidget {
             color: selected
                 ? AppColors.pureWhite
                 : (isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.warmGraphite),
+                      ? AppColors.darkTextSecondary
+                      : AppColors.warmGraphite),
           ),
         ),
       ),
@@ -376,14 +413,14 @@ class _DeviceCard extends StatelessWidget {
     final statusColor = isOnline
         ? AppColors.alertOk
         : isUnknown
-            ? AppColors.warmGraphite
-            : AppColors.alertDanger;
+        ? AppColors.warmGraphite
+        : AppColors.alertDanger;
 
     final statusType = isOnline
         ? StatusType.online
         : isUnknown
-            ? StatusType.neutral
-            : StatusType.offline;
+        ? StatusType.neutral
+        : StatusType.offline;
 
     return TactilePressable(
       onTap: onTap,
@@ -396,8 +433,8 @@ class _DeviceCard extends StatelessWidget {
             color: isOnline
                 ? AppColors.alertOk.withValues(alpha: 0.25)
                 : isDark
-                    ? AppColors.darkBorder
-                    : AppColors.warmStone,
+                ? AppColors.darkBorder
+                : AppColors.warmStone,
             width: 1,
           ),
           boxShadow: isDark
@@ -425,19 +462,12 @@ class _DeviceCard extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Icon(
-                      Icons.memory_rounded,
-                      size: 22,
-                      color: statusColor,
-                    ),
+                    Icon(Icons.memory_rounded, size: 22, color: statusColor),
                     if (isOnline)
                       Positioned(
                         top: 5,
                         right: 5,
-                        child: PulsingBeacon(
-                          size: 7,
-                          color: AppColors.alertOk,
-                        ),
+                        child: PulsingBeacon(size: 7, color: AppColors.alertOk),
                       ),
                   ],
                 ),
@@ -534,8 +564,9 @@ class _DeviceCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.warmGraphite
-                                  .withValues(alpha: 0.1),
+                              color: AppColors.warmGraphite.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(

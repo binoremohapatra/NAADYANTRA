@@ -1,0 +1,338 @@
+[
+  {
+    "screen": "assessment_details",
+    "theme": "light",
+    "gif": "backgrounds/light/assessment_details_light.gif",
+    "fallback": "backgrounds/fallback/light/assessment_details_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "assessment_details",
+    "theme": "dark",
+    "gif": "backgrounds/dark/assessment_details_dark.gif",
+    "fallback": "backgrounds/fallback/dark/assessment_details_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "assessments",
+    "theme": "dark",
+    "gif": "backgrounds/dark/assessments_dark.gif",
+    "fallback": "backgrounds/fallback/dark/assessments_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "assessments",
+    "theme": "light",
+    "gif": "backgrounds/light/assessments_light.gif",
+    "fallback": "backgrounds/fallback/light/assessments_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "device_details",
+    "theme": "light",
+    "gif": "backgrounds/light/device_details_light.gif",
+    "fallback": "backgrounds/fallback/light/device_details_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "device_details",
+    "theme": "dark",
+    "gif": "backgrounds/dark/device_details_dark.gif",
+    "fallback": "backgrounds/fallback/dark/device_details_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "device_inventory",
+    "theme": "dark",
+    "gif": "backgrounds/dark/device_inventory_dark.gif",
+    "fallback": "backgrounds/fallback/dark/device_inventory_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "device_inventory",
+    "theme": "light",
+    "gif": "backgrounds/light/device_inventory_light.gif",
+    "fallback": "backgrounds/fallback/light/device_inventory_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "event_details",
+    "theme": "light",
+    "gif": "backgrounds/light/event_details_light.gif",
+    "fallback": "backgrounds/fallback/light/event_details_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "event_details",
+    "theme": "dark",
+    "gif": "backgrounds/dark/event_details_dark.gif",
+    "fallback": "backgrounds/fallback/dark/event_details_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "events",
+    "theme": "dark",
+    "gif": "backgrounds/dark/events_dark.gif",
+    "fallback": "backgrounds/fallback/dark/events_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "events",
+    "theme": "light",
+    "gif": "backgrounds/light/events_light.gif",
+    "fallback": "backgrounds/fallback/light/events_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "help_field_guide",
+    "theme": "light",
+    "gif": "backgrounds/light/help_field_guide_light.gif",
+    "fallback": "backgrounds/fallback/light/help_field_guide_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "help_field_guide",
+    "theme": "dark",
+    "gif": "backgrounds/dark/help_field_guide_dark.gif",
+    "fallback": "backgrounds/fallback/dark/help_field_guide_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "home_overview",
+    "theme": "light",
+    "gif": "backgrounds/light/home_overview_light.gif",
+    "fallback": "backgrounds/fallback/light/home_overview_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "home_overview",
+    "theme": "dark",
+    "gif": "backgrounds/dark/home_overview_dark.gif",
+    "fallback": "backgrounds/fallback/dark/home_overview_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "inspection",
+    "theme": "dark",
+    "gif": "backgrounds/dark/inspection_dark.gif",
+    "fallback": "backgrounds/fallback/dark/inspection_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "inspection",
+    "theme": "light",
+    "gif": "backgrounds/light/inspection_light.gif",
+    "fallback": "backgrounds/fallback/light/inspection_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "login",
+    "theme": "dark",
+    "gif": "backgrounds/dark/login_dark.gif",
+    "fallback": "backgrounds/fallback/dark/login_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "login",
+    "theme": "light",
+    "gif": "backgrounds/light/login_light.gif",
+    "fallback": "backgrounds/fallback/light/login_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "session_details",
+    "theme": "light",
+    "gif": "backgrounds/light/session_details_light.gif",
+    "fallback": "backgrounds/fallback/light/session_details_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "session_details",
+    "theme": "dark",
+    "gif": "backgrounds/dark/session_details_dark.gif",
+    "fallback": "backgrounds/fallback/dark/session_details_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "sessions",
+    "theme": "dark",
+    "gif": "backgrounds/dark/sessions_dark.gif",
+    "fallback": "backgrounds/fallback/dark/sessions_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "sessions",
+    "theme": "light",
+    "gif": "backgrounds/light/sessions_light.gif",
+    "fallback": "backgrounds/fallback/light/sessions_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "settings",
+    "theme": "dark",
+    "gif": "backgrounds/dark/settings_dark.gif",
+    "fallback": "backgrounds/fallback/dark/settings_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "settings",
+    "theme": "light",
+    "gif": "backgrounds/light/settings_light.gif",
+    "fallback": "backgrounds/fallback/light/settings_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  },
+  {
+    "screen": "splash",
+    "theme": "light",
+    "gif": "backgrounds/light/splash_light.gif",
+    "fallback": "backgrounds/fallback/light/splash_light.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "original"
+  },
+  {
+    "screen": "splash",
+    "theme": "dark",
+    "gif": "backgrounds/dark/splash_dark.gif",
+    "fallback": "backgrounds/fallback/dark/splash_dark.png",
+    "frames": 16,
+    "size": [
+      300,
+      667
+    ],
+    "source": "palette-adapted opposite-theme variant"
+  }
+]

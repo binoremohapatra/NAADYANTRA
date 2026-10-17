@@ -91,7 +91,16 @@ class _DataStreamPainter extends CustomPainter {
   });
 
   static const List<String> _hexTokens = [
-    '0x4A', '0x9E', '192k', 'RMS', '48k', '0x1F', 'LEAK', 'OK', 'dB', 'HEX'
+    '0x4A',
+    '0x9E',
+    '192k',
+    'RMS',
+    '48k',
+    '0x1F',
+    'LEAK',
+    'OK',
+    'dB',
+    'HEX',
   ];
 
   @override
@@ -135,10 +144,14 @@ class _DataStreamPainter extends CustomPainter {
         dotPaint.color = isHighlighted
             ? AppColors.burntOrange.withValues(alpha: 0.45 * opacity)
             : (isDark ? AppColors.warmGraphite : AppColors.warmStone)
-                .withValues(alpha: 0.25 * opacity);
+                  .withValues(alpha: 0.25 * opacity);
 
         canvas.drawRect(
-          Rect.fromCenter(center: Offset(x, y), width: isHighlighted ? 6 : 4, height: 2),
+          Rect.fromCenter(
+            center: Offset(x, y),
+            width: isHighlighted ? 6 : 4,
+            height: 2,
+          ),
           dotPaint,
         );
 

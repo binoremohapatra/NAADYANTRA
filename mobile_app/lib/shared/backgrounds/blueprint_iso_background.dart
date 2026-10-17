@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -157,10 +158,16 @@ class _BlueprintIsoPainter extends CustomPainter {
       color: AppColors.burntOrange.withValues(alpha: 0.22 * opacity),
     );
     final watermark = TextPainter(
-      text: const TextSpan(text: 'ISO-10816 / VOCATIONAL RUBRIC GRID', style: null),
+      text: const TextSpan(
+        text: 'ISO-10816 / VOCATIONAL RUBRIC GRID',
+        style: null,
+      ),
       textDirection: TextDirection.ltr,
     );
-    watermark.text = TextSpan(text: 'ISO-10816 / VOCATIONAL RUBRIC GRID', style: textStyle);
+    watermark.text = TextSpan(
+      text: 'ISO-10816 / VOCATIONAL RUBRIC GRID',
+      style: textStyle,
+    );
     watermark.layout();
     watermark.paint(canvas, Offset(24, size.height - 30));
   }

@@ -22,7 +22,6 @@ class ApiConstants {
   static String deviceLatestTelemetry(String deviceId) =>
       '$apiV1/devices/$deviceId/telemetry/latest';
 
-
   // Sessions
   static const String sessions = '$apiV1/sessions';
   static String session(String sessionId) => '$apiV1/sessions/$sessionId';

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -20,7 +21,8 @@ class SpectralMatrixBackground extends StatefulWidget {
   });
 
   @override
-  State<SpectralMatrixBackground> createState() => _SpectralMatrixBackgroundState();
+  State<SpectralMatrixBackground> createState() =>
+      _SpectralMatrixBackgroundState();
 }
 
 class _SpectralMatrixBackgroundState extends State<SpectralMatrixBackground>
@@ -96,7 +98,7 @@ class _SpectralMatrixPainter extends CustomPainter {
     '36 kHz (Harmonic Band)',
     '24 kHz (Nyquist Limit)',
     '12 kHz (Acoustic Mid)',
-    '0 kHz (Baseline)'
+    '0 kHz (Baseline)',
   ];
 
   @override
@@ -122,10 +124,13 @@ class _SpectralMatrixPainter extends CustomPainter {
     for (int i = 0; i < _freqLabels.length; i++) {
       final y = startY + (i * bandSpacing);
 
-      linePaint.color = i == 2 // Nyquist Limit
+      linePaint.color =
+          i ==
+              2 // Nyquist Limit
           ? AppColors.burntOrange.withValues(alpha: 0.35 * opacity)
-          : (isDark ? AppColors.darkBorder : AppColors.warmStone)
-              .withValues(alpha: 0.3 * opacity);
+          : (isDark ? AppColors.darkBorder : AppColors.warmStone).withValues(
+              alpha: 0.3 * opacity,
+            );
 
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
 
@@ -134,7 +139,10 @@ class _SpectralMatrixPainter extends CustomPainter {
         text: TextSpan(text: _freqLabels[i], style: textStyle),
         textDirection: TextDirection.ltr,
       )..layout();
-      textPainter.paint(canvas, Offset(size.width - textPainter.width - 12, y - 11));
+      textPainter.paint(
+        canvas,
+        Offset(size.width - textPainter.width - 12, y - 11),
+      );
     }
 
     // Oscillating vertical spectral FFT bars in the background
@@ -152,9 +160,11 @@ class _SpectralMatrixPainter extends CustomPainter {
       final barHeight = maxBarHeight * (0.3 + 0.7 * harmonic);
 
       barPaint.color = isUltrasonic
-          ? AppColors.burntOrange.withValues(alpha: (0.08 + 0.08 * harmonic) * opacity)
+          ? AppColors.burntOrange.withValues(
+              alpha: (0.08 + 0.08 * harmonic) * opacity,
+            )
           : (isDark ? AppColors.darkSurfaceElevated : AppColors.warmStone)
-              .withValues(alpha: 0.12 * opacity);
+                .withValues(alpha: 0.12 * opacity);
 
       final rect = Rect.fromLTWH(
         x,
@@ -162,7 +172,10 @@ class _SpectralMatrixPainter extends CustomPainter {
         barWidth * 0.6,
         barHeight,
       );
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), barPaint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        barPaint,
+      );
     }
   }
 

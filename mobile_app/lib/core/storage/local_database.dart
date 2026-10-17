@@ -433,19 +433,25 @@ class LocalDatabase {
   Future<Map<String, dynamic>> getDashboardOverview() async {
     try {
       final db = await database;
-      final devCount = Sqflite.firstIntValue(
+      final devCount =
+          Sqflite.firstIntValue(
             await db.rawQuery('SELECT COUNT(*) FROM devices'),
           ) ??
           0;
-      final activeDevCount = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM devices WHERE is_active = 1'),
+      final activeDevCount =
+          Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM devices WHERE is_active = 1',
+            ),
           ) ??
           0;
-      final sessCount = Sqflite.firstIntValue(
+      final sessCount =
+          Sqflite.firstIntValue(
             await db.rawQuery('SELECT COUNT(*) FROM sessions'),
           ) ??
           0;
-      final eventCount = Sqflite.firstIntValue(
+      final eventCount =
+          Sqflite.firstIntValue(
             await db.rawQuery('SELECT COUNT(*) FROM events'),
           ) ??
           0;

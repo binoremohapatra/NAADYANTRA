@@ -24,8 +24,9 @@ class Event {
   final String ingestionStatus;
   // Hazard fusion fields (TinyML) — stored in raw_payload, not first-class DB columns.
   // These are uncalibrated model outputs, NOT calibrated probabilities.
-  final int? hazardState;   // 0=normal 1=proximity 2=prox_breach 3=gas_buildup 4=overheat
-  final int? hazardConf;    // 0–100 model confidence score (not a probability)
+  final int?
+  hazardState; // 0=normal 1=proximity 2=prox_breach 3=gas_buildup 4=overheat
+  final int? hazardConf; // 0–100 model confidence score (not a probability)
 
   Event({
     required this.id,
@@ -66,11 +67,16 @@ class Event {
   /// Returns null when hazardState is null or 0 (normal).
   String? get hazardStateLabel {
     switch (hazardState) {
-      case 1: return 'PROXIMITY';
-      case 2: return 'PROX BREACH';
-      case 3: return 'GAS BUILDUP';
-      case 4: return 'OVERHEAT';
-      default: return null;
+      case 1:
+        return 'PROXIMITY';
+      case 2:
+        return 'PROX BREACH';
+      case 3:
+        return 'GAS BUILDUP';
+      case 4:
+        return 'OVERHEAT';
+      default:
+        return null;
     }
   }
 
@@ -98,8 +104,8 @@ class Event {
       wet: json['wet'] == null
           ? null
           : (json['wet'] is bool
-              ? json['wet'] as bool
-              : (json['wet'] as num) != 0),
+                ? json['wet'] as bool
+                : (json['wet'] as num) != 0),
       firmwareVersion: json['firmware_version'] as String?,
       rawPayload: json['raw_payload'] as Map<String, dynamic>? ?? {},
       ingestionStatus: json['ingestion_status'] as String? ?? 'accepted',

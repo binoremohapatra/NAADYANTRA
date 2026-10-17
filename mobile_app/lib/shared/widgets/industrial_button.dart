@@ -62,7 +62,8 @@ class _IndustrialButtonState extends State<IndustrialButton>
   @override
   void didUpdateWidget(covariant IndustrialButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.variant == IndustrialButtonVariant.primary && _glowController == null) {
+    if (widget.variant == IndustrialButtonVariant.primary &&
+        _glowController == null) {
       _glowController = AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 2200),
@@ -70,7 +71,8 @@ class _IndustrialButtonState extends State<IndustrialButton>
       _glowAnimation = Tween<double>(begin: 0.22, end: 0.45).animate(
         CurvedAnimation(parent: _glowController!, curve: Curves.easeInOut),
       );
-    } else if (widget.variant != IndustrialButtonVariant.primary && _glowController != null) {
+    } else if (widget.variant != IndustrialButtonVariant.primary &&
+        _glowController != null) {
       _glowController?.dispose();
       _glowController = null;
       _glowAnimation = null;
@@ -162,7 +164,8 @@ class _IndustrialButtonState extends State<IndustrialButton>
           color: isEnabled ? bg : bg.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(9),
           border: Border.fromBorderSide(border),
-          boxShadow: (widget.variant == IndustrialButtonVariant.primary && isEnabled)
+          boxShadow:
+              (widget.variant == IndustrialButtonVariant.primary && isEnabled)
               ? [
                   BoxShadow(
                     color: AppColors.burntOrange.withValues(alpha: glowAlpha),
@@ -215,10 +218,8 @@ class _IndustrialButtonState extends State<IndustrialButton>
 
     return AnimatedBuilder(
       animation: _scaleAnimation,
-      builder: (context, child) => Transform.scale(
-        scale: _scaleAnimation.value,
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.scale(scale: _scaleAnimation.value, child: child),
       child: content,
     );
   }

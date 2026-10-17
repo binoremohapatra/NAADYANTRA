@@ -18,11 +18,7 @@ class CinematicParticleField extends StatefulWidget {
   final Widget? child;
   final double opacity;
 
-  const CinematicParticleField({
-    super.key,
-    this.child,
-    this.opacity = 1.0,
-  });
+  const CinematicParticleField({super.key, this.child, this.opacity = 1.0});
 
   @override
   State<CinematicParticleField> createState() => _CinematicParticleFieldState();
@@ -58,9 +54,7 @@ class _CinematicParticleFieldState extends State<CinematicParticleField>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (isReduced) {
-      return widget.child != null
-          ? widget.child!
-          : const SizedBox.expand();
+      return widget.child != null ? widget.child! : const SizedBox.expand();
     }
 
     return RepaintBoundary(
@@ -84,14 +78,14 @@ class _CinematicParticleFieldState extends State<CinematicParticleField>
 }
 
 class _Particle {
-  final double xFraction;   // 0..1 horizontal starting position
-  final double yStart;      // 0..1 vertical start (bottom)
-  final double size;        // radius in logical pixels
-  final double speed;       // 0..1 drift speed multiplier
-  final double phase;       // animation phase offset 0..1
-  final double swayAmp;     // horizontal sway amplitude
-  final double swayFreq;    // sway oscillation frequency
-  final bool isOrange;      // burnt orange vs soft graphite
+  final double xFraction; // 0..1 horizontal starting position
+  final double yStart; // 0..1 vertical start (bottom)
+  final double size; // radius in logical pixels
+  final double speed; // 0..1 drift speed multiplier
+  final double phase; // animation phase offset 0..1
+  final double swayAmp; // horizontal sway amplitude
+  final double swayFreq; // sway oscillation frequency
+  final bool isOrange; // burnt orange vs soft graphite
 
   const _Particle({
     required this.xFraction,
@@ -158,19 +152,20 @@ class _CinematicPainter extends CustomPainter {
 
     // Second glow at bottom (warm accent)
     final paint2 = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          AppColors.darkBurntOrange.withValues(
-            alpha: (isDark ? 0.05 : 0.03) * opacity,
-          ),
-          Colors.transparent,
-        ],
-      ).createShader(
-        Rect.fromCircle(
-          center: Offset(size.width * 0.2, size.height * 0.85),
-          radius: size.width * 0.5,
-        ),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              AppColors.darkBurntOrange.withValues(
+                alpha: (isDark ? 0.05 : 0.03) * opacity,
+              ),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.2, size.height * 0.85),
+              radius: size.width * 0.5,
+            ),
+          );
     canvas.drawCircle(
       Offset(size.width * 0.2, size.height * 0.85),
       size.width * 0.5,
@@ -220,13 +215,16 @@ class _CinematicPainter extends CustomPainter {
       final y = size.height * (1.0 - cycleT);
 
       // Sway horizontally with a sine function
-      final x = size.width * p.xFraction +
+      final x =
+          size.width * p.xFraction +
           math.sin(cycleT * p.swayFreq * 2 * math.pi) * p.swayAmp;
 
       // Fade in/out: bright in middle of journey, invisible at endpoints
       final lifeFade = math.sin(cycleT * math.pi).clamp(0.0, 1.0);
 
-      final baseColor = p.isOrange ? AppColors.burntOrange : AppColors.warmGraphite;
+      final baseColor = p.isOrange
+          ? AppColors.burntOrange
+          : AppColors.warmGraphite;
       final alpha = (isDark ? 0.55 : 0.30) * lifeFade * opacity;
 
       // Glow halo
@@ -236,8 +234,7 @@ class _CinematicPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), p.size * 2.0, haloPaint);
 
       // Solid core
-      final corePaint = Paint()
-        ..color = baseColor.withValues(alpha: alpha);
+      final corePaint = Paint()..color = baseColor.withValues(alpha: alpha);
       canvas.drawCircle(Offset(x, y), p.size, corePaint);
     }
   }

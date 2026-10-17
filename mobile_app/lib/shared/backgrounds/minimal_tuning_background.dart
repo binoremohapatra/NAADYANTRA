@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -20,7 +21,8 @@ class MinimalTuningBackground extends StatefulWidget {
   });
 
   @override
-  State<MinimalTuningBackground> createState() => _MinimalTuningBackgroundState();
+  State<MinimalTuningBackground> createState() =>
+      _MinimalTuningBackgroundState();
 }
 
 class _MinimalTuningBackgroundState extends State<MinimalTuningBackground>
@@ -121,8 +123,14 @@ class _MinimalTuningPainter extends CustomPainter {
       final innerR = dialRadius - (isMajor ? 10 : 5);
       final outerR = dialRadius;
 
-      final p1 = Offset(center.dx + math.cos(angle) * innerR, center.dy + math.sin(angle) * innerR);
-      final p2 = Offset(center.dx + math.cos(angle) * outerR, center.dy + math.sin(angle) * outerR);
+      final p1 = Offset(
+        center.dx + math.cos(angle) * innerR,
+        center.dy + math.sin(angle) * innerR,
+      );
+      final p2 = Offset(
+        center.dx + math.cos(angle) * outerR,
+        center.dy + math.sin(angle) * outerR,
+      );
 
       tickPaint.strokeWidth = isMajor ? 1.4 : 0.8;
       canvas.drawLine(p1, p2, tickPaint);

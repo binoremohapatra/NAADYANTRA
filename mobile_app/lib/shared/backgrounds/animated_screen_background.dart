@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'cinematic_particle_field.dart';
 import 'technical_grid_background.dart';
 import 'acoustic_signal_field.dart';
-import 'iot_mesh_background.dart';
 import 'live_sonar_background.dart';
 import 'data_stream_background.dart';
 import 'spectral_matrix_background.dart';
@@ -89,15 +88,12 @@ class AnimatedScreenBackground extends StatelessWidget {
         break;
 
       case ScreenBackgroundTheme.overview:
-        backgroundLayer = Stack(
-          children: [
-            Positioned.fill(
-              child: IoTMeshBackground(opacity: 0.85 * intensity),
-            ),
-            Positioned.fill(
-              child: CinematicParticleField(opacity: 0.3 * intensity),
-            ),
-          ],
+        backgroundLayer = Positioned.fill(
+          child: TechnicalGridBackground(
+            gridSpacing: 38.0,
+            opacity: 0.20 * intensity,
+            showScanLine: false,
+          ),
         );
         break;
 
@@ -138,11 +134,6 @@ class AnimatedScreenBackground extends StatelessWidget {
         break;
     }
 
-    return Stack(
-      children: [
-        backgroundLayer,
-        child,
-      ],
-    );
+    return Stack(children: [backgroundLayer, child]);
   }
 }

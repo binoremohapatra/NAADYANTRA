@@ -18,19 +18,23 @@ import '../../../shared/widgets/metric_readout.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/pulsing_beacon.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
-final sessionDetailsProvider =
-    FutureProvider.family<Session, int>((ref, sessionId) async {
-      final repo = ref.watch(sessionRepositoryProvider);
-      return await repo.getSession(sessionId);
-    });
+final sessionDetailsProvider = FutureProvider.family<Session, int>((
+  ref,
+  sessionId,
+) async {
+  final repo = ref.watch(sessionRepositoryProvider);
+  return await repo.getSession(sessionId);
+});
 
-final sessionSummaryProvider =
-    FutureProvider.family<SessionSummary, int>((ref, sessionId) async {
-      final repo = ref.watch(sessionRepositoryProvider);
-      return await repo.getSessionSummary(sessionId);
-    });
+final sessionSummaryProvider = FutureProvider.family<SessionSummary, int>((
+  ref,
+  sessionId,
+) async {
+  final repo = ref.watch(sessionRepositoryProvider);
+  return await repo.getSessionSummary(sessionId);
+});
 
 final sessionEventsProvider =
     FutureProvider.family<PaginatedResponse<Event>, String>((
@@ -175,44 +179,45 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnimatedScreenBackground(
-      theme: ScreenBackgroundTheme.spectralMatrix,
-      intensity: 0.75,
+    return NaadyantraAnimatedBackground(
+      kind: NaadyantraBackgroundKind.sessionDetails,
+      lightScrimOpacity: 0.88,
+      darkScrimOpacity: 0.70,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      children: [
-        // Session Header Card
-        StaggeredEntrance(
-          index: 0,
-          child: _buildSessionHeaderCard(context, session, isDark),
-        ),
-        const SizedBox(height: 12),
-
-        // Diagnostic Summary & Probability
-        StaggeredEntrance(
-          index: 1,
-          child: _buildSummarySection(context, summaryAsync),
-        ),
-        const SizedBox(height: 12),
-
-        // Acoustic Spectrogram Visualizer
-        summaryAsync.when(
-          data: (summary) => StaggeredEntrance(
-            index: 2,
-            child: _buildAcousticSpectrumCard(context, summary, isDark),
+        children: [
+          // Session Header Card
+          StaggeredEntrance(
+            index: 0,
+            child: _buildSessionHeaderCard(context, session, isDark),
           ),
-          loading: () => const SizedBox.shrink(),
-          error: (_, _) => const SizedBox.shrink(),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-        // Acoustic Events Timeline
-        StaggeredEntrance(
-          index: 3,
-          child: _buildEventsSection(context, eventsAsync),
-        ),
-        const SizedBox(height: 24),
-      ],
+          // Diagnostic Summary & Probability
+          StaggeredEntrance(
+            index: 1,
+            child: _buildSummarySection(context, summaryAsync),
+          ),
+          const SizedBox(height: 12),
+
+          // Acoustic Spectrogram Visualizer
+          summaryAsync.when(
+            data: (summary) => StaggeredEntrance(
+              index: 2,
+              child: _buildAcousticSpectrumCard(context, summary, isDark),
+            ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 12),
+
+          // Acoustic Events Timeline
+          StaggeredEntrance(
+            index: 3,
+            child: _buildEventsSection(context, eventsAsync),
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
@@ -534,7 +539,9 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                   label: 'Peak Leak Probability',
                   value: '$leakPct%',
                   icon: Icons.psychology_alt_rounded,
-                  accentColor: hasLeak ? AppColors.alertDanger : AppColors.alertOk,
+                  accentColor: hasLeak
+                      ? AppColors.alertDanger
+                      : AppColors.alertOk,
                 ),
               ),
               const SizedBox(width: 8),
@@ -761,7 +768,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: color ??
+          color:
+              color ??
               (isDark ? AppColors.darkTextSecondary : AppColors.warmGraphite),
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
@@ -830,4 +838,3 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
   }
 }
-

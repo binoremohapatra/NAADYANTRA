@@ -460,14 +460,14 @@ class TestTraineeManagement:
             "/api/v1/trainees",
             headers=auth_headers,
             json={
-                "trainee_id": "T002",
+                "trainee_id": "TRAINEE-MGT-01",
                 "name": "Test Trainee",
                 "cohort": "Cohort A"
             }
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["trainee_id"] == "T002"
+        assert data["trainee_id"] == "TRAINEE-MGT-01"
         assert data["name"] == "Test Trainee"
 
     def test_list_trainees(self, client, auth_headers):
@@ -614,6 +614,59 @@ class TestZeroMockPolicy:
         data = response.json()
         assert data["total"] == 0
         assert data["items"] == []
+
+
+class TestAuthenticationSecurity:
+    """Verifies authentication, password rotation, and token security."""
+
+    def test_change_password_success(self, client, auth_headers):
+        """Authenticated user can rotate their password."""
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={
+                "current_password": "admin123",
+                "new_password": "newSecurePassword123!"
+            }
+        )
+        assert response.status_code == 200
+        assert "rotated successfully" in response.json()["message"].lower()
+
+    def test_change_password_invalid_current(self, client, auth_headers):
+        """Rejects rotation when current password is incorrect."""
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={
+                "current_password": "wrongOldPassword",
+                "new_password": "newSecurePassword123!"
+            }
+        )
+        assert response.status_code == 400
+        assert "incorrect" in response.json()["detail"].lower()
+
+    def test_change_password_short_password(self, client, auth_headers):
+        """Rejects passwords shorter than 8 characters."""
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={
+                "current_password": "admin123",
+                "new_password": "short"
+            }
+        )
+        assert response.status_code == 422
+
+    def test_change_password_unauthenticated(self, client):
+        """Unauthenticated requests are blocked."""
+        response = client.post(
+            "/api/v1/auth/change-password",
+            json={
+                "current_password": "admin123",
+                "new_password": "newSecurePassword123!"
+            }
+        )
+        assert response.status_code in [401, 403]
 
 
 if __name__ == "__main__":

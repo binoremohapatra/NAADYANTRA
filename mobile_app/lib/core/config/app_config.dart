@@ -15,7 +15,8 @@ class AppConfig {
   // *** Set this to the actual LAN IP of the machine running FastAPI. ***
   // Example: 'http://192.168.1.10:8000'
   // Find it with: ipconfig (Windows) or ip addr (Linux/Mac)
-  static const String localApiBaseUrl = 'http://10.0.2.2:8000'; // override for physical device
+  static const String localApiBaseUrl =
+      'http://10.0.2.2:8000'; // override for physical device
 
   // Connection Timeouts
   static const Duration connectTimeout = Duration(seconds: 30);

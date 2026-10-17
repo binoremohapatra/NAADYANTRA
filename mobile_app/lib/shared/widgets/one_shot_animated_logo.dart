@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -109,10 +110,7 @@ class _OneShotAnimatedLogoState extends State<OneShotAnimatedLogo>
     );
 
     // Linear progression maps to the GIF's pre-rendered 55 ease-out inward frames
-    _curve = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.linear,
-    );
+    _curve = CurvedAnimation(parent: _controller, curve: Curves.linear);
 
     _controller.addStatusListener(_onAnimationStatusChanged);
   }
@@ -144,11 +142,13 @@ class _OneShotAnimatedLogoState extends State<OneShotAnimatedLogo>
         data = await rootBundle.load(OneShotAnimatedLogo.animatedAssetPath);
       } catch (_) {
         try {
-          data = await rootBundle
-              .load(OneShotAnimatedLogo.animatedAssetImagePath);
+          data = await rootBundle.load(
+            OneShotAnimatedLogo.animatedAssetImagePath,
+          );
         } catch (_) {
-          data = await rootBundle
-              .load(OneShotAnimatedLogo.animatedWebpAssetPath);
+          data = await rootBundle.load(
+            OneShotAnimatedLogo.animatedWebpAssetPath,
+          );
         }
       }
 
@@ -212,7 +212,8 @@ class _OneShotAnimatedLogoState extends State<OneShotAnimatedLogo>
 
   @override
   void dispose() {
-    if (!OneShotAnimatedLogo.hasPlayedOnceThisLaunch && _controller.isAnimating) {
+    if (!OneShotAnimatedLogo.hasPlayedOnceThisLaunch &&
+        _controller.isAnimating) {
       OneShotAnimatedLogo.hasPlayedOnceThisLaunch = true;
     }
     _controller.removeStatusListener(_onAnimationStatusChanged);
@@ -243,8 +244,7 @@ class _OneShotAnimatedLogoState extends State<OneShotAnimatedLogo>
             height: widget.size,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
-            errorBuilder: (ctx, err, st) =>
-                HazeGuardLogo(size: widget.size),
+            errorBuilder: (ctx, err, st) => HazeGuardLogo(size: widget.size),
           ),
         ),
       );
@@ -252,10 +252,7 @@ class _OneShotAnimatedLogoState extends State<OneShotAnimatedLogo>
 
     // While decoding frames, show transparent placeholder sized identically
     if (_isLoading) {
-      return SizedBox(
-        width: widget.size,
-        height: widget.size,
-      );
+      return SizedBox(width: widget.size, height: widget.size);
     }
 
     // Playback phase: frame-driven inward motion smoothly locked to frame clock

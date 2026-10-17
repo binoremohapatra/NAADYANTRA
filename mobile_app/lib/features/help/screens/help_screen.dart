@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/widgets/industrial_card.dart';
 import '../../../shared/widgets/status_pill.dart';
@@ -41,9 +41,10 @@ class _HelpScreenState extends State<HelpScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.blueprintIso,
-        intensity: 0.7,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.helpFieldGuide,
+        lightScrimOpacity: 0.88,
+        darkScrimOpacity: 0.70,
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           children: [
@@ -71,8 +72,8 @@ class _HelpScreenState extends State<HelpScreen> {
                             color: isSelected
                                 ? AppColors.pureWhite
                                 : (isDark
-                                    ? AppColors.darkTextSecondary
-                                    : AppColors.warmGraphite),
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.warmGraphite),
                           ),
                         ),
                         selectedColor: AppColors.burntOrange,
@@ -84,8 +85,8 @@ class _HelpScreenState extends State<HelpScreen> {
                           color: isSelected
                               ? AppColors.burntOrange
                               : (isDark
-                                  ? AppColors.darkBorder
-                                  : AppColors.warmStone),
+                                    ? AppColors.darkBorder
+                                    : AppColors.warmStone),
                         ),
                         onSelected: (_) =>
                             setState(() => _selectedCategoryIndex = idx),
@@ -160,7 +161,8 @@ class _HelpScreenState extends State<HelpScreen> {
                   isDark: isDark,
                   items: [
                     _HelpItem(
-                      question: 'How do I identify if the ESP32 node is online?',
+                      question:
+                          'How do I identify if the ESP32 node is online?',
                       answer:
                           'A device is ONLINE when the telemetry server receives an active HTTP packet '
                           'within the last 5 minutes. The status beacon will glow solid emerald. '
@@ -310,7 +312,9 @@ class _HelpScreenState extends State<HelpScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.warmGraphite,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.warmGraphite,
             ),
           ),
         ),
@@ -325,9 +329,8 @@ class _HelpScreenState extends State<HelpScreen> {
               return Column(
                 children: [
                   Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                    ),
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       shape: const Border(),
                       collapsedShape: const Border(),
@@ -375,7 +378,9 @@ class _HelpScreenState extends State<HelpScreen> {
                   if (!isLast)
                     Divider(
                       height: 1,
-                      color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                      color: isDark
+                          ? AppColors.darkBorder
+                          : AppColors.warmStone,
                     ),
                 ],
               );

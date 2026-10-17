@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 import '../../../shared/backgrounds/diagnostic_radar_sweep.dart';
 import '../../../shared/models/device.dart';
 import '../../../shared/models/event.dart';
@@ -20,11 +21,13 @@ import '../../../shared/widgets/metric_readout.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/widgets/status_pill.dart';
 
-final singleDeviceStatusProvider =
-    FutureProvider.family<DeviceStatus, String>((ref, deviceId) async {
-      final repo = ref.watch(deviceRepositoryProvider);
-      return await repo.getDeviceStatus(deviceId);
-    });
+final singleDeviceStatusProvider = FutureProvider.family<DeviceStatus, String>((
+  ref,
+  deviceId,
+) async {
+  final repo = ref.watch(deviceRepositoryProvider);
+  return await repo.getDeviceStatus(deviceId);
+});
 
 final singleDeviceDetailsProvider = FutureProvider.family<Device, String>((
   ref,
@@ -71,9 +74,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(singleDeviceStatusProvider(widget.deviceId));
-    final deviceAsync = ref.watch(
-      singleDeviceDetailsProvider(widget.deviceId),
-    );
+    final deviceAsync = ref.watch(singleDeviceDetailsProvider(widget.deviceId));
     final eventsAsync = ref.watch(deviceEventsProvider(widget.deviceId));
     final summariesAsync = ref.watch(deviceSummariesProvider(widget.deviceId));
 
@@ -119,9 +120,10 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
           ],
         ),
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.circuitTrace,
-        intensity: 0.75,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.deviceDetails,
+        lightScrimOpacity: 0.88,
+        darkScrimOpacity: 0.70,
         child: TabBarView(
           controller: _tabController,
           children: [
@@ -144,12 +146,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
             _buildDiagnosticsTab(context, statusAsync, deviceAsync, isDark),
 
             // Tab 5: Raw Telemetry JSON Inspector
-            _buildRawTelemetryTab(
-              context,
-              eventsAsync,
-              summariesAsync,
-              isDark,
-            ),
+            _buildRawTelemetryTab(context, eventsAsync, summariesAsync, isDark),
           ],
         ),
       ),
@@ -181,10 +178,14 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
         final leakProb = latestEvent?.leakProbability;
 
         // Use Device model connectivity methods if available
-        final connectivityStatus = device?.connectivityStatus ?? (isOnline ? 'online' : 'offline');
-        final stalenessText = device?.stalenessText ?? (status.lastSeenAt != null
-            ? DateFormat('yyyy-MM-dd • HH:mm:ss').format(status.lastSeenAt!.toLocal())
-            : 'Never seen');
+        final connectivityStatus =
+            device?.connectivityStatus ?? (isOnline ? 'online' : 'offline');
+        final stalenessText =
+            device?.stalenessText ??
+            (status.lastSeenAt != null
+                ? DateFormat('yyyy-MM-dd • HH:mm:ss')
+                      .format(status.lastSeenAt!.toLocal())
+                : 'Never seen');
 
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -245,8 +246,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                                     type: connectivityStatus == 'online'
                                         ? StatusType.online
                                         : (connectivityStatus == 'offline'
-                                            ? StatusType.offline
-                                            : StatusType.neutral),
+                                              ? StatusType.offline
+                                              : StatusType.neutral),
                                     showDot: connectivityStatus != 'online',
                                   ),
                                 ],
@@ -268,7 +269,9 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                     ),
                     const SizedBox(height: 14),
                     Divider(
-                      color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                      color: isDark
+                          ? AppColors.darkBorder
+                          : AppColors.warmStone,
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -292,7 +295,9 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                                 color: device?.isStale == true
                                     ? AppColors.alertCaution
                                     : null,
@@ -305,9 +310,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                           height: 34,
                           variant: IndustrialButtonVariant.secondary,
                           onPressed: () {
-                            ref
-                                .read(selectedDeviceIdProvider.notifier)
-                                .state = widget.deviceId;
+                            ref.read(selectedDeviceIdProvider.notifier).state =
+                                widget.deviceId;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -338,10 +342,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                         ? const Color(0xFFFFF3E0) // Light orange warning
                         : const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.alertCaution,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.alertCaution, width: 1),
                   ),
                   child: Row(
                     children: [
@@ -421,8 +422,9 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                             value: wet != null ? (wet ? 'WET' : 'DRY') : '--',
                             unit: 'conduction',
                             icon: Icons.water_drop_outlined,
-                            accentColor:
-                                wet == true ? AppColors.alertDanger : null,
+                            accentColor: wet == true
+                                ? AppColors.alertDanger
+                                : null,
                           ),
                         ),
                       ],
@@ -528,8 +530,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                       valueColor: latestEvent?.alert == 'DANGER'
                           ? AppColors.alertDanger
                           : (latestEvent?.alert == 'CAUTION'
-                              ? AppColors.alertCaution
-                              : AppColors.alertOk),
+                                ? AppColors.alertCaution
+                                : AppColors.alertOk),
                     ),
                     const Divider(),
                     _buildDetailRow(
@@ -560,8 +562,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                       icon: Icons.screen_rotation_rounded,
                       title: 'Motion / IMU (6-Axis Gyro & Accel)',
                       statusText: 'UNSUPPORTED / HARDWARE NOT MOUNTED',
-                      description:
-                          'The NAADYANTRA inspection rig utilizes an acoustic contact-piezo transducer on pipe valves. MPU-6050 / IMU is not present on this hardware revision.',
+                      description: 'The NAADYANTRA inspection rig utilizes an acoustic contact-piezo transducer on pipe valves. MPU-6050 / IMU is not present on this hardware revision.',
                       isSupported: false,
                     ),
                     const Divider(),
@@ -569,8 +570,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                       icon: Icons.electric_bolt_rounded,
                       title: 'EMG / Biopotential Signal Probe',
                       statusText: 'UNSUPPORTED / NOT APPLICABLE',
-                      description:
-                          'Electromyography biopotential sensing is not part of this pipeline NDT acoustic rig.',
+                      description: 'Electromyography biopotential sensing is not part of this pipeline NDT acoustic rig.',
                       isSupported: false,
                     ),
                   ],
@@ -607,8 +607,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
           return IndustrialEmptyView(
             icon: Icons.history_rounded,
             title: 'No Telemetry Events Logged',
-            message:
-                'Trigger an active inspection session or simulate telemetry to populate records.',
+            message: 'Trigger an active inspection session or simulate telemetry to populate records.',
             actionLabel: 'Refresh Timeline',
             onAction: _refreshAll,
           );
@@ -708,9 +707,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
           fontWeight: FontWeight.w700,
           color: isSelected
               ? AppColors.pureWhite
-              : (isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.warmGraphite),
+              : (isDark ? AppColors.darkTextSecondary : AppColors.warmGraphite),
         ),
       ),
       selectedColor: AppColors.burntOrange,
@@ -762,8 +759,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                   isDanger
                       ? Icons.warning_rounded
                       : (isCaution
-                          ? Icons.info_outline_rounded
-                          : Icons.check_circle_outline_rounded),
+                            ? Icons.info_outline_rounded
+                            : Icons.check_circle_outline_rounded),
                   color: alertColor,
                   size: 16,
                 ),
@@ -858,8 +855,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
           return IndustrialEmptyView(
             icon: Icons.assessment_outlined,
             title: 'No Session Summaries Recorded',
-            message:
-                'Session summaries are transmitted by ESP32 firmware upon session completion (stopSession).',
+            message: 'Session summaries are transmitted by ESP32 firmware upon session completion (stopSession).',
             actionLabel: 'Check for Summaries',
             onAction: _refreshAll,
           );
@@ -896,8 +892,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
       margin: const EdgeInsets.only(bottom: 14),
       child: IndustrialCard(
         title: 'SESSION #${summary.deviceSessionId} SUMMARY',
-        subtitle:
-            'Trainee: ${summary.traineeId} • Node: ${summary.deviceId}',
+        subtitle: 'Trainee: ${summary.traineeId} • Node: ${summary.deviceId}',
         trailing: StatusPill(
           label: 'DURATION: ${summary.durationSeconds ?? 0}s',
           type: StatusType.completed,
@@ -952,9 +947,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
             const Divider(),
             _buildDetailRow(
               'Server Recorded Timestamp',
-              DateFormat('yyyy-MM-dd HH:mm:ss').format(
-                summary.serverTimestamp.toLocal(),
-              ),
+              DateFormat('yyyy-MM-dd HH:mm:ss')
+                  .format(summary.serverTimestamp.toLocal()),
             ),
           ],
         ),
@@ -1147,8 +1141,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
       return IndustrialEmptyView(
         icon: Icons.code_rounded,
         title: 'No Raw Telemetry Packets Recorded',
-        message:
-            'Original JSON payloads from physical ESP32 broadcasts will appear here for inspection.',
+        message: 'Original JSON payloads from physical ESP32 broadcasts will appear here for inspection.',
         actionLabel: 'Refresh Packets',
         onAction: _refreshAll,
       );
@@ -1171,30 +1164,34 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
             ),
           ),
         ),
-        ...events.take(15).map((e) => _buildJsonExpandableCard(
-              context,
-              title:
-                  'EVENT #${e.id} [${e.eventName ?? "state"}] — ${DateFormat("HH:mm:ss").format(e.serverTimestamp.toLocal())}',
-              badge: e.alert ?? 'OK',
-              payload: e.rawPayload.isNotEmpty
-                  ? e.rawPayload
-                  : {
-                      't': e.deviceTimestamp,
-                      'up': e.deviceUptimeMs,
-                      'ev': e.eventName,
-                      'alert': e.alert,
-                      'cause': e.cause,
-                      'lbl': e.modelLabel,
-                      'pl': e.leakProbability,
-                      'rms': e.rms,
-                      'gas': e.gasDelta,
-                      'gr': e.gasRatio,
-                      'tc': e.temperature,
-                      'uv': e.uvDelta,
-                      'wet': e.wet == true ? 1 : 0,
-                    },
-              isDark: isDark,
-            )),
+        ...events
+            .take(15)
+            .map(
+              (e) => _buildJsonExpandableCard(
+                context,
+                title:
+                    'EVENT #${e.id} [${e.eventName ?? "state"}] — ${DateFormat("HH:mm:ss").format(e.serverTimestamp.toLocal())}',
+                badge: e.alert ?? 'OK',
+                payload: e.rawPayload.isNotEmpty
+                    ? e.rawPayload
+                    : {
+                        't': e.deviceTimestamp,
+                        'up': e.deviceUptimeMs,
+                        'ev': e.eventName,
+                        'alert': e.alert,
+                        'cause': e.cause,
+                        'lbl': e.modelLabel,
+                        'pl': e.leakProbability,
+                        'rms': e.rms,
+                        'gas': e.gasDelta,
+                        'gr': e.gasRatio,
+                        'tc': e.temperature,
+                        'uv': e.uvDelta,
+                        'wet': e.wet == true ? 1 : 0,
+                      },
+                isDark: isDark,
+              ),
+            ),
         if (summaries.isNotEmpty) ...[
           const SizedBox(height: 16),
           Padding(
@@ -1211,27 +1208,29 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
               ),
             ),
           ),
-          ...summaries.map((s) => _buildJsonExpandableCard(
-                context,
-                title:
-                    'SUMMARY #${s.id} [SESS ${s.deviceSessionId}] — ${DateFormat("yyyy-MM-dd HH:mm").format(s.serverTimestamp.toLocal())}',
-                badge: 'SUMMARY',
-                payload: s.rawPayload.isNotEmpty
-                    ? s.rawPayload
-                    : {
-                        'session_id': s.deviceSessionId,
-                        'trainee': s.traineeId,
-                        'dur_s': s.durationSeconds,
-                        'windows': s.windows,
-                        'leak_events': s.leakEvents,
-                        'gas_events': s.gasEvents,
-                        'wet_events': s.wetEvents,
-                        'max_leak_p': s.maxLeakProbability,
-                        'device': s.deviceId,
-                        'fw': s.firmwareVersion,
-                      },
-                isDark: isDark,
-              )),
+          ...summaries.map(
+            (s) => _buildJsonExpandableCard(
+              context,
+              title:
+                  'SUMMARY #${s.id} [SESS ${s.deviceSessionId}] — ${DateFormat("yyyy-MM-dd HH:mm").format(s.serverTimestamp.toLocal())}',
+              badge: 'SUMMARY',
+              payload: s.rawPayload.isNotEmpty
+                  ? s.rawPayload
+                  : {
+                      'session_id': s.deviceSessionId,
+                      'trainee': s.traineeId,
+                      'dur_s': s.durationSeconds,
+                      'windows': s.windows,
+                      'leak_events': s.leakEvents,
+                      'gas_events': s.gasEvents,
+                      'wet_events': s.wetEvents,
+                      'max_leak_p': s.maxLeakProbability,
+                      'device': s.deviceId,
+                      'fw': s.firmwareVersion,
+                    },
+              isDark: isDark,
+            ),
+          ),
         ],
         const SizedBox(height: 24),
       ],
@@ -1275,10 +1274,10 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
               type: badge == 'DANGER'
                   ? StatusType.danger
                   : (badge == 'CAUTION'
-                      ? StatusType.caution
-                      : (badge == 'SUMMARY'
-                          ? StatusType.completed
-                          : StatusType.ok)),
+                        ? StatusType.caution
+                        : (badge == 'SUMMARY'
+                              ? StatusType.completed
+                              : StatusType.ok)),
               showDot: false,
             ),
             const SizedBox(width: 4),
@@ -1328,11 +1327,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
   // =========================================================================
   // HELPER WIDGETS
   // =========================================================================
-  Widget _buildDetailRow(
-    String label,
-    String value, {
-    Color? valueColor,
-  }) {
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -1357,7 +1352,8 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: valueColor ??
+                color:
+                    valueColor ??
                     (isDark ? AppColors.darkTextPrimary : AppColors.carbon),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),

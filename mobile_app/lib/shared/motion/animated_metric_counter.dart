@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
 
@@ -33,7 +34,8 @@ class AnimatedMetricCounter extends StatelessWidget {
     final defaultTextColor = isDark ? AppColors.pureWhite : AppColors.carbon;
     final color = accentColor ?? defaultTextColor;
 
-    final baseStyle = style ??
+    final baseStyle =
+        style ??
         TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
@@ -41,8 +43,9 @@ class AnimatedMetricCounter extends StatelessWidget {
           fontFeatures: const [FontFeature.tabularFigures()],
         );
 
-    final captionColor =
-        isDark ? AppColors.darkTextSecondary : AppColors.warmGraphite;
+    final captionColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.warmGraphite;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,10 +67,7 @@ class AnimatedMetricCounter extends StatelessWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             if (isReduced)
-              Text(
-                value.toStringAsFixed(fractionDigits),
-                style: baseStyle,
-              )
+              Text(value.toStringAsFixed(fractionDigits), style: baseStyle)
             else
               TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0.0, end: value),

@@ -47,7 +47,8 @@ class _StatusPillState extends State<StatusPill>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    final shouldAnimate = widget.showDot &&
+    final shouldAnimate =
+        widget.showDot &&
         (widget.type == StatusType.online ||
             widget.type == StatusType.active ||
             widget.type == StatusType.danger ||
@@ -62,7 +63,8 @@ class _StatusPillState extends State<StatusPill>
   @override
   void didUpdateWidget(covariant StatusPill oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final shouldAnimate = widget.showDot &&
+    final shouldAnimate =
+        widget.showDot &&
         (widget.type == StatusType.online ||
             widget.type == StatusType.active ||
             widget.type == StatusType.danger ||
@@ -160,7 +162,10 @@ class _StatusPillState extends State<StatusPill>
                       boxShadow: [
                         BoxShadow(
                           color: dot.withValues(
-                            alpha: (_pulseAnimation.value - 0.7).clamp(0.0, 0.6),
+                            alpha: (_pulseAnimation.value - 0.7).clamp(
+                              0.0,
+                              0.6,
+                            ),
                           ),
                           blurRadius: 4,
                           spreadRadius: 1,

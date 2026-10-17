@@ -12,6 +12,16 @@ class SecureStorageService {
   static const String _traineeIdKey = 'trainee_id';
   static const String _deviceIdKey = 'device_id';
   static const String _apiBaseUrlKey = 'api_base_url';
+  static const String _themeModeKey = 'theme_mode';
+
+  // Theme Mode
+  Future<void> saveThemeMode(String mode) async {
+    await _storage.write(key: _themeModeKey, value: mode);
+  }
+
+  Future<String?> getThemeMode() async {
+    return await _storage.read(key: _themeModeKey);
+  }
 
   // Auth Token
   Future<void> saveAuthToken(String token) async {

@@ -17,18 +17,19 @@ import '../../../core/config/app_config.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/pulsing_beacon.dart';
 import '../../../shared/backgrounds/diagnostic_radar_sweep.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 // deviceStatusProvider and latestTelemetryProvider are in providers.dart.
 // The local recentEventsProvider is preserved for the event-stream list
 // at the bottom of the screen (shows last 10 events).
-final recentEventsProvider =
-    FutureProvider.autoDispose<List<Event>>((ref) async {
-      final deviceId = ref.watch(selectedDeviceIdProvider);
-      if (deviceId == null) return <Event>[];
-      final repo = ref.watch(deviceRepositoryProvider);
-      return await repo.getDeviceEvents(deviceId, limit: 10);
-    });
+final recentEventsProvider = FutureProvider.autoDispose<List<Event>>((
+  ref,
+) async {
+  final activeDeviceId = ref.watch(activeDeviceIdProvider);
+  if (activeDeviceId == null || activeDeviceId.isEmpty) return const <Event>[];
+  final repo = ref.watch(deviceRepositoryProvider);
+  return await repo.getDeviceEvents(activeDeviceId, limit: 10);
+});
 
 // ─────────────────────────────────────────────
 //  ARC GAUGE — RMS level (CustomPainter)
@@ -86,7 +87,8 @@ class _ArcGaugePainter extends CustomPainter {
     }
 
     // Threshold indicator pip on ticks ring (at 400 ADC)
-    final threshAngle = startAngle + sweepMax * thresholdProgress.clamp(0.0, 1.0);
+    final threshAngle =
+        startAngle + sweepMax * thresholdProgress.clamp(0.0, 1.0);
     final thPip1 = Offset(
       cx + (radius + 5.0) * math.cos(threshAngle),
       cy + (radius + 5.0) * math.sin(threshAngle),
@@ -154,11 +156,7 @@ class _ArcGaugePainter extends CustomPainter {
         4.0,
         Paint()..color = const Color(0xFFFFFFFF),
       );
-      canvas.drawCircle(
-        Offset(tipX, tipY),
-        2.2,
-        Paint()..color = arcColor,
-      );
+      canvas.drawCircle(Offset(tipX, tipY), 2.2, Paint()..color = arcColor);
     }
   }
 
@@ -210,7 +208,10 @@ class _SparklinePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [lineColor.withValues(alpha: 0.25), lineColor.withValues(alpha: 0.0)],
+          colors: [
+            lineColor.withValues(alpha: 0.25),
+            lineColor.withValues(alpha: 0.0),
+          ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
@@ -228,11 +229,7 @@ class _SparklinePainter extends CustomPainter {
     // Dot on latest value
     final lastX = (values.length - 1) * xStep;
     final lastY = size.height - ((values.last - minV) / range) * size.height;
-    canvas.drawCircle(
-      Offset(lastX, lastY),
-      4,
-      Paint()..color = lineColor,
-    );
+    canvas.drawCircle(Offset(lastX, lastY), 4, Paint()..color = lineColor);
     canvas.drawCircle(
       Offset(lastX, lastY),
       4,
@@ -250,7 +247,7 @@ class _SparklinePainter extends CustomPainter {
 //  ANIMATED ARC GAUGE WIDGET
 // ─────────────────────────────────────────────
 class _AnimatedArcGauge extends StatefulWidget {
-  final double value;     // raw value (e.g. RMS 0–4095)
+  final double value; // raw value (e.g. RMS 0–4095)
   final double maxValue;
   final String label;
   final String unit;
@@ -277,9 +274,13 @@ class _AnimatedArcGaugeState extends State<_AnimatedArcGauge>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 900));
-    _anim = Tween<double>(begin: 0, end: widget.value / widget.maxValue)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _anim = Tween<double>(
+      begin: 0,
+      end: widget.value / widget.maxValue,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
 
@@ -320,8 +321,9 @@ class _AnimatedArcGaugeState extends State<_AnimatedArcGauge>
                   painter: _ArcGaugePainter(
                     progress: _anim.value,
                     arcColor: widget.color,
-                    trackColor:
-                        isDark ? AppColors.darkBorder : AppColors.warmStone,
+                    trackColor: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.warmStone,
                   ),
                 ),
               ),
@@ -331,9 +333,7 @@ class _AnimatedArcGaugeState extends State<_AnimatedArcGauge>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.value > 0
-                          ? widget.value.toStringAsFixed(0)
-                          : '--',
+                      widget.value > 0 ? widget.value.toStringAsFixed(0) : '--',
                       style: TextStyle(
                         fontSize: 27,
                         fontWeight: FontWeight.w900,
@@ -540,9 +540,13 @@ class _AnimatedLeakRingState extends State<_AnimatedLeakRing>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1000));
-    _anim = Tween<double>(begin: 0, end: widget.leakProbability ?? 0)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _anim = Tween<double>(
+      begin: 0,
+      end: widget.leakProbability ?? 0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
 
@@ -589,7 +593,9 @@ class _AnimatedLeakRingState extends State<_AnimatedLeakRing>
                 painter: _LeakRingPainter(
                   progress: _anim.value,
                   color: ringColor,
-                  trackColor: isDark ? AppColors.darkBorder : AppColors.warmStone,
+                  trackColor: isDark
+                      ? AppColors.darkBorder
+                      : AppColors.warmStone,
                 ),
               ),
               Column(
@@ -644,9 +650,13 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
-    _anim = Tween<double>(begin: 0, end: _target())
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _anim = Tween<double>(
+      begin: 0,
+      end: _target(),
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
 
@@ -654,8 +664,10 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
   void didUpdateWidget(_AnimatedGasBar old) {
     super.didUpdateWidget(old);
     if (old.gasDelta != widget.gasDelta) {
-      _anim = Tween<double>(begin: _anim.value, end: _target())
-          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _anim = Tween<double>(
+        begin: _anim.value,
+        end: _target(),
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
       _ctrl
         ..reset()
         ..forward();
@@ -674,9 +686,7 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
     final delta = widget.gasDelta;
     final isElevated = delta != null && delta.abs() > 100;
     final barColor = isElevated ? AppColors.burntOrange : AppColors.alertOk;
-    final label = delta != null
-        ? (delta >= 0 ? '+$delta' : '$delta')
-        : '--';
+    final label = delta != null ? (delta >= 0 ? '+$delta' : '$delta') : '--';
 
     return AnimatedBuilder(
       animation: _anim,
@@ -688,8 +698,11 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.air_rounded,
-                      size: 14, color: AppColors.burntOrange),
+                  const Icon(
+                    Icons.air_rounded,
+                    size: 14,
+                    color: AppColors.burntOrange,
+                  ),
                   const SizedBox(width: 6),
                   const Text(
                     'GAS DELTA (MQ)',
@@ -720,8 +733,7 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
               children: [
                 Container(
                   height: 14,
-                  color:
-                      isDark ? AppColors.darkBorder : AppColors.warmStone,
+                  color: isDark ? AppColors.darkBorder : AppColors.warmStone,
                 ),
                 FractionallySizedBox(
                   widthFactor: _anim.value,
@@ -729,10 +741,7 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
                     height: 14,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          barColor.withValues(alpha: 0.7),
-                          barColor,
-                        ],
+                        colors: [barColor.withValues(alpha: 0.7), barColor],
                       ),
                     ),
                   ),
@@ -742,7 +751,10 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
                   left: MediaQuery.sizeOf(context).width * 0.167 - 50,
                   top: 0,
                   bottom: 0,
-                  child: Container(width: 1.5, color: AppColors.warmGraphite.withValues(alpha: 0.4)),
+                  child: Container(
+                    width: 1.5,
+                    color: AppColors.warmGraphite.withValues(alpha: 0.4),
+                  ),
                 ),
               ],
             ),
@@ -754,7 +766,9 @@ class _AnimatedGasBarState extends State<_AnimatedGasBar>
               Text(
                 'Baseline threshold: ±100 ADC',
                 style: const TextStyle(
-                    fontSize: 9, color: AppColors.warmGraphite),
+                  fontSize: 9,
+                  color: AppColors.warmGraphite,
+                ),
               ),
               Text(
                 isElevated ? '⚠ ELEVATED' : '● NOMINAL',
@@ -820,13 +834,45 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     if (_isSimulating) return;
     setState(() => _isSimulating = true);
 
-    final deviceId = ref.read(selectedDeviceIdProvider) ?? 'SIH-DEV-01';
+    final deviceId = ref.read(activeDeviceIdProvider);
+    if (deviceId == null || deviceId.isEmpty) {
+      if (mounted) {
+        setState(() => _isSimulating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ No hardware node selected for test simulation.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     final repo = ref.read(deviceRepositoryProvider);
+    final baseUrl = ref.read(backendUrlProvider).valueOrNull ?? '';
+
+    // DATA INTEGRITY GUARD:
+    // Prevent synthetic lab test frames from polluting the live production cloud database.
+    if (baseUrl.contains('onrender.com')) {
+      if (mounted) {
+        setState(() => _isSimulating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '🛡️ Production Guard: Cloud database protected against synthetic frames. Connect to local test bench to inject frames.',
+            ),
+            backgroundColor: AppColors.carbon,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
 
     final rms = isLeak ? 1860.0 : 310.0;
     final gas = isLeak ? 465 : 42;
     final leak = isLeak ? 0.92 : 0.04;
-    // Firmware valid values: OK | CAUTION | DANGER (not CRITICAL)
+    // Firmware valid values: OK | CAUTION | DANGER
     final alert = isLeak ? 'DANGER' : 'OK';
     final temp = isLeak ? 36.8 : 27.2;
 
@@ -837,6 +883,8 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
       leak: leak,
       alert: alert,
       temp: temp,
+      session: 999999,
+      trainee: 'TR-SIM-DEMO',
     );
 
     if (mounted) {
@@ -847,12 +895,13 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
           content: Text(
             success
                 ? (isLeak
-                    ? '⚠️ Ultrasonic Leak Telemetry Synced to Cloud (RMS: 1860, Leak: 92%)'
-                    : '✅ Nominal Acoustic Baseline Synced to Cloud (RMS: 310, Leak: 4%)')
-                : 'Telemetry broadcast completed in offline buffer',
+                      ? '⚠️ Ultrasonic Leak Frame Synced to Local Rig'
+                      : '✅ Nominal Baseline Frame Synced to Local Rig')
+                : 'Telemetry broadcast buffered locally',
           ),
-          backgroundColor:
-              isLeak ? AppColors.darkBurntOrange : AppColors.carbon,
+          backgroundColor: isLeak
+              ? AppColors.darkBurntOrange
+              : AppColors.carbon,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -896,7 +945,8 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                       trailing: d.isActive
                           ? const StatusPill(
                               label: 'ACTIVE',
-                              type: StatusType.active)
+                              type: StatusType.active,
+                            )
                           : null,
                       onTap: () => Navigator.pop(dialogCtx, d.deviceId),
                     );
@@ -931,7 +981,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
       builder: (sheetCtx) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -940,8 +992,10 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
             const Text(
               'BACKEND URL',
               style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w800,
-                letterSpacing: 1.2, color: AppColors.warmGraphite,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: AppColors.warmGraphite,
               ),
             ),
             const SizedBox(height: 4),
@@ -967,9 +1021,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      ref
-                          .read(backendUrlProvider.notifier)
-                          .resetToDefault();
+                      ref.read(backendUrlProvider.notifier).resetToDefault();
                       Navigator.pop(sheetCtx);
                     },
                     child: const Text('Reset to Cloud'),
@@ -999,7 +1051,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedDeviceId = ref.watch(selectedDeviceIdProvider);
+    final selectedDeviceId = ref.watch(activeDeviceIdProvider);
     final deviceStatus = ref.watch(deviceStatusProvider);
     final recentEvents = ref.watch(recentEventsProvider);
     final latestTelAsync = ref.watch(latestTelemetryProvider);
@@ -1026,12 +1078,22 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     // No device selected — show picker prompt instead of the full screen.
     if (selectedDeviceId == null) {
       return Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           title: const Row(
             children: [
-              PulsingBeacon(size: 8, color: AppColors.warmGraphite),
+              PulsingBeacon(size: 8, color: AppColors.burntOrange),
               SizedBox(width: 8),
-              Text('LIVE DIAGNOSTIC PROBE'),
+              Text(
+                'LIVE DIAGNOSTIC PROBE',
+                style: TextStyle(
+                  color: AppColors.pureWhite,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),
@@ -1041,19 +1103,25 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.sensors_off_rounded,
-                    size: 48, color: AppColors.warmGraphite),
+                const Icon(
+                  Icons.sensors_off_rounded,
+                  size: 48,
+                  color: AppColors.softSand,
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   'No device selected',
                   style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.pureWhite,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Select a registered ESP32 node to begin live inspection.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.warmGraphite),
+                  style: TextStyle(color: AppColors.subtleGray),
                 ),
                 const SizedBox(height: 24),
                 IndustrialButton(
@@ -1069,7 +1137,10 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Row(
           children: [
             PulsingBeacon(
@@ -1082,9 +1153,12 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
             Expanded(
               child: Text(
                 selectedDeviceId,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4),
+                style: AppTypography.spaceGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AppColors.pureWhite : AppColors.carbon,
+                  letterSpacing: 0.5,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1098,18 +1172,23 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.darkBurntOrange.withValues(alpha: 0.15),
+                    color: AppColors.darkBurntOrange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                        color: AppColors.darkBurntOrange, width: 0.8),
+                      color: AppColors.burntOrange,
+                      width: 0.8,
+                    ),
                   ),
                   child: Text(
                     'STALE · $stalenessLabel',
                     style: const TextStyle(
-                      fontSize: 9, fontWeight: FontWeight.w700,
-                      color: AppColors.darkBurntOrange,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.burntOrange,
                       letterSpacing: 0.6,
                     ),
                   ),
@@ -1117,26 +1196,36 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.sensors_rounded),
+            icon: Icon(
+              Icons.sensors_rounded,
+              color: isDark ? AppColors.softSand : AppColors.warmGraphite,
+            ),
             tooltip: 'Change device',
             onPressed: () => _showDevicePicker(context),
           ),
           IconButton(
-            icon: const Icon(Icons.settings_ethernet_rounded),
+            icon: Icon(
+              Icons.settings_ethernet_rounded,
+              color: isDark ? AppColors.softSand : AppColors.warmGraphite,
+            ),
             tooltip: 'Backend URL',
             onPressed: () => _showBackendSettings(context),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: isDark ? AppColors.softSand : AppColors.warmGraphite,
+            ),
             tooltip: 'Sync Probes',
             onPressed: _refreshData,
           ),
           const SizedBox(width: 4),
         ],
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.liveSonar,
-        intensity: 0.75,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.inspection,
+        lightScrimOpacity: 0.58,
+        darkScrimOpacity: 0.50,
         child: RefreshIndicator(
           onRefresh: _refreshData,
           child: ListView(
@@ -1181,7 +1270,11 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               StaggeredEntrance(
                 index: 3,
                 child: _buildHazardSection(
-                    context, latest, isLeakCritical, isDark),
+                  context,
+                  latest,
+                  isLeakCritical,
+                  isDark,
+                ),
               ),
               const SizedBox(height: 12),
 
@@ -1240,7 +1333,11 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               ),
             ),
           ),
-          const Icon(Icons.sensors_rounded, size: 16, color: AppColors.burntOrange),
+          const Icon(
+            Icons.sensors_rounded,
+            size: 16,
+            color: AppColors.burntOrange,
+          ),
         ],
       ),
     );
@@ -1258,7 +1355,10 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
           Expanded(
             child: Text(
               'Failed to reach telemetry probe: $error',
-              style: const TextStyle(color: AppColors.alertDanger, fontSize: 13),
+              style: const TextStyle(
+                color: AppColors.alertDanger,
+                fontSize: 13,
+              ),
             ),
           ),
           IconButton(
@@ -1284,7 +1384,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                 status.isOnline
                     ? Icons.wifi_tethering_rounded
                     : Icons.portable_wifi_off_rounded,
-                color: status.isOnline ? AppColors.alertOk : AppColors.warmGraphite,
+                color: status.isOnline
+                    ? AppColors.alertOk
+                    : AppColors.warmGraphite,
                 size: 20,
               ),
             ],
@@ -1307,7 +1409,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                       ? 'Receiving acoustic telemetry packets'
                       : 'Awaiting device handshake',
                   style: const TextStyle(
-                      fontSize: 11, color: AppColors.warmGraphite),
+                    fontSize: 11,
+                    color: AppColors.warmGraphite,
+                  ),
                 ),
               ],
             ),
@@ -1325,7 +1429,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                     ? 'Last: ${DateFormat("HH:mm:ss").format(status.lastSeenAt!)}'
                     : 'No ping yet',
                 style: const TextStyle(
-                    fontSize: 9, color: AppColors.warmGraphite),
+                  fontSize: 9,
+                  color: AppColors.warmGraphite,
+                ),
               ),
             ],
           ),
@@ -1555,8 +1661,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
       decoration: BoxDecoration(
-        color:
-            isDark ? AppColors.darkSurfaceElevated : AppColors.industrialIvory,
+        color: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.industrialIvory,
         borderRadius: BorderRadius.circular(5),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.warmStone,
@@ -1771,8 +1878,11 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.memory_rounded,
-                      size: 13, color: AppColors.warmGraphite),
+                  const Icon(
+                    Icons.memory_rounded,
+                    size: 13,
+                    color: AppColors.warmGraphite,
+                  ),
                   const SizedBox(width: 6),
                   const Text(
                     'TINYML HAZARD FUSION',
@@ -1788,12 +1898,18 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                   if (latest.hazardStateLabel != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.darkBurntOrange.withValues(alpha: 0.12),
+                        color: AppColors.darkBurntOrange.withValues(
+                          alpha: 0.12,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: AppColors.darkBurntOrange, width: 0.8),
+                          color: AppColors.darkBurntOrange,
+                          width: 0.8,
+                        ),
                       ),
                       child: Text(
                         latest.hazardStateLabel!,
@@ -1908,8 +2024,11 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.science_rounded,
-                    size: 16, color: AppColors.alertCaution),
+                Icon(
+                  Icons.science_rounded,
+                  size: 16,
+                  color: AppColors.alertCaution,
+                ),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1992,19 +2111,26 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.check_circle_outline_rounded,
-                        size: 32, color: AppColors.alertOk),
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 32,
+                      color: AppColors.alertOk,
+                    ),
                     SizedBox(height: 8),
                     Text(
                       'No Live Anomalies Detected',
                       style: TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 13),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'RMS level remains within baseline calibration thresholds.',
                       style: TextStyle(
-                          fontSize: 11, color: AppColors.warmGraphite),
+                        fontSize: 11,
+                        color: AppColors.warmGraphite,
+                      ),
                     ),
                   ],
                 ),
@@ -2046,8 +2172,11 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
               color: alertColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(Icons.warning_amber_rounded,
-                color: alertColor, size: 18),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              color: alertColor,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2060,7 +2189,9 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                       child: Text(
                         (event.cause ?? 'ANOMALY').toUpperCase(),
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

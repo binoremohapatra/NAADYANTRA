@@ -74,8 +74,9 @@ class _TechnicalGridBackgroundState extends State<TechnicalGridBackground>
         builder: (context, child) {
           return CustomPaint(
             painter: _TechnicalGridPainter(
-              progress:
-                  isReduced || !widget.showScanLine ? 0.0 : _controller.value,
+              progress: isReduced || !widget.showScanLine
+                  ? 0.0
+                  : _controller.value,
               gridSpacing: widget.gridSpacing,
               isDark: isDark,
               opacity: widget.opacity,

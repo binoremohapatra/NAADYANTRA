@@ -13,7 +13,7 @@ import '../../../shared/widgets/status_pill.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/motion/staggered_entrance.dart';
 import '../../../shared/motion/tactile_pressable.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
 final sessionsProvider =
     FutureProvider.family<PaginatedResponse<Session>, String>((
@@ -44,156 +44,169 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     final sessionsAsync = ref.watch(
       sessionsProvider('$_currentPage,$_pageSize'),
     );
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('SESSION ARCHIVE'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'SESSION ARCHIVE',
+          style: AppTypography.spaceGrotesk(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: isDark ? AppColors.pureWhite : AppColors.carbon,
+            letterSpacing: 0.5,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: isDark ? AppColors.softSand : AppColors.warmGraphite,
+            ),
             tooltip: 'Sync Archive',
             onPressed: () => _refreshSessions(),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.dataStream,
-        intensity: 0.7,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.sessions,
+        lightScrimOpacity: 0.58,
+        darkScrimOpacity: 0.50,
         child: Column(
           children: [
-          // Filter Tabs Bar with Animated Smooth Selection
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : AppColors.pureWhite,
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.warmStone,
+            // Filter Tabs Bar with Animated Smooth Selection
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xCC181716)
+                    : AppColors.pureWhite.withValues(alpha: 0.95),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF2E2C29)
+                        : AppColors.warmStone,
+                  ),
                 ),
               ),
+              child: Row(
+                children: [
+                  _buildFilterChip('ALL', 'All Sessions'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('ACTIVE', 'In Progress'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('COMPLETED', 'Completed'),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                _buildFilterChip('ALL', 'All Sessions'),
-                const SizedBox(width: 8),
-                _buildFilterChip('ACTIVE', 'In Progress'),
-                const SizedBox(width: 8),
-                _buildFilterChip('COMPLETED', 'Completed'),
-              ],
-            ),
-          ),
 
-          // Main Session Content Area
-          Expanded(
-            child: sessionsAsync.when(
-              data: (paginatedResponse) {
-                var items = paginatedResponse.items;
-                if (_filterStatus == 'ACTIVE') {
-                  items = items.where((s) => s.isActive).toList();
-                } else if (_filterStatus == 'COMPLETED') {
-                  items = items.where((s) => !s.isActive).toList();
-                }
+            // Main Session Content Area
+            Expanded(
+              child: sessionsAsync.when(
+                data: (paginatedResponse) {
+                  var items = paginatedResponse.items;
+                  if (_filterStatus == 'ACTIVE') {
+                    items = items.where((s) => s.isActive).toList();
+                  } else if (_filterStatus == 'COMPLETED') {
+                    items = items.where((s) => !s.isActive).toList();
+                  }
 
-                if (items.isEmpty) {
-                  return IndustrialEmptyView(
-                    icon: Icons.history_rounded,
-                    title: 'No Sessions Found',
-                    message: _filterStatus == 'ALL'
-                        ? 'Trigger a physical inspection run to archive telemetry.'
-                        : 'No sessions matching filter $_filterStatus.',
-                    actionLabel: 'Refresh Archive',
-                    onAction: _refreshSessions,
-                  );
-                }
+                  if (items.isEmpty) {
+                    return IndustrialEmptyView(
+                      icon: Icons.history_rounded,
+                      title: 'No Sessions Found',
+                      message: _filterStatus == 'ALL'
+                          ? 'Trigger a physical inspection run to archive telemetry.'
+                          : 'No sessions matching filter $_filterStatus.',
+                      actionLabel: 'Refresh Archive',
+                      onAction: _refreshSessions,
+                    );
+                  }
 
-                final isCached = paginatedResponse.isFromCache;
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  itemCount: items.length + (isCached ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (isCached && index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkSurfaceElevated
-                                : AppColors.softSand.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.darkBorder
-                                  : AppColors.softSand,
+                  final isCached = paginatedResponse.isFromCache;
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    itemCount: items.length + (isCached ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (isCached && index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.cloud_off_rounded,
-                                size: 16,
-                                color: AppColors.warmGraphite,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'OFFLINE BUFFER — DISPLAYING PERSISTED SQLITE CACHE',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: AppColors.warmGraphite,
+                            decoration: BoxDecoration(
+                              color: AppColors.darkSurfaceElevated,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.darkBorder),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.cloud_off_rounded,
+                                  size: 16,
+                                  color: AppColors.warmGraphite,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'OFFLINE BUFFER — DISPLAYING PERSISTED SQLITE CACHE',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.6,
+                                      color: AppColors.warmGraphite,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      final actualIndex = isCached ? index - 1 : index;
+                      final session = items[actualIndex];
+                      return StaggeredEntrance(
+                        index: actualIndex,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TactilePressable(
+                            onTap: () => _navigateToSessionDetail(session),
+                            child: _buildSessionCard(context, session),
                           ),
                         ),
                       );
-                    }
-                    final actualIndex = isCached ? index - 1 : index;
-                    final session = items[actualIndex];
-                    return StaggeredEntrance(
-                      index: actualIndex,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: TactilePressable(
-                          onTap: () => _navigateToSessionDetail(session),
-                          child: _buildSessionCard(context, session),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const IndustrialLoadingView(
-                message: 'Loading telemetry archive...',
-              ),
-              error: (error, _) => IndustrialErrorView(
-                title: 'Archive Retrieval Error',
-                message: error.toString(),
-                onRetry: _refreshSessions,
+                    },
+                  );
+                },
+                loading: () => const IndustrialLoadingView(
+                  message: 'Loading telemetry archive...',
+                ),
+                error: (error, _) => IndustrialErrorView(
+                  title: 'Archive Retrieval Error',
+                  message: error.toString(),
+                  onRetry: _refreshSessions,
+                ),
               ),
             ),
-          ),
 
-          // Pagination Footer Bar
-          sessionsAsync.maybeWhen(
-            data: (response) {
-              if (response.total <= _pageSize) return const SizedBox.shrink();
-              return _buildPagination(context, response);
-            },
-            orElse: () => const SizedBox.shrink(),
-          ),
+            // Pagination Footer Bar
+            sessionsAsync.maybeWhen(
+              data: (response) {
+                if (response.total <= _pageSize) return const SizedBox.shrink();
+                return _buildPagination(context, response);
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
@@ -219,15 +232,15 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           color: isSelected
               ? AppColors.burntOrange
               : isDark
-                  ? AppColors.darkSurfaceElevated
-                  : AppColors.industrialIvory,
+              ? AppColors.darkSurfaceElevated
+              : AppColors.industrialIvory,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? AppColors.burntOrange
                 : isDark
-                    ? AppColors.darkBorder
-                    : AppColors.warmStone,
+                ? AppColors.darkBorder
+                : AppColors.warmStone,
           ),
           boxShadow: isSelected
               ? [
@@ -247,8 +260,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             color: isSelected
                 ? AppColors.pureWhite
                 : isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.carbon,
+                ? AppColors.darkTextSecondary
+                : AppColors.carbon,
           ),
         ),
       ),
@@ -293,8 +306,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                     : 'Session Finalized',
                 style: TextStyle(
                   fontSize: 12,
-                  fontStyle:
-                      session.isActive ? FontStyle.italic : FontStyle.normal,
+                  fontStyle: session.isActive
+                      ? FontStyle.italic
+                      : FontStyle.normal,
                   color: session.isActive
                       ? AppColors.alertWarning
                       : AppColors.warmGraphite,
@@ -334,7 +348,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceElevated : AppColors.industrialIvory,
+        color: isDark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.industrialIvory,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.warmStone,

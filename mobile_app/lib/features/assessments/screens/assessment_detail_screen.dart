@@ -10,10 +10,10 @@ import '../../../shared/widgets/industrial_card.dart';
 import '../../../shared/widgets/status_pill.dart';
 import '../../../shared/widgets/state_views.dart';
 import '../../../shared/motion/staggered_entrance.dart';
-import '../../../shared/backgrounds/animated_screen_background.dart';
+import '../../../shared/backgrounds/naadyantra_animated_background.dart';
 
-final assessmentDetailProvider =
-    FutureProvider.autoDispose.family<Assessment, String>((ref, assessmentId) async {
+final assessmentDetailProvider = FutureProvider.autoDispose
+    .family<Assessment, String>((ref, assessmentId) async {
       final repo = ref.watch(assessmentRepositoryProvider);
       return repo.getAssessment(assessmentId);
     });
@@ -35,19 +35,19 @@ class AssessmentDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Reload Assessment',
-            onPressed: () => ref.invalidate(assessmentDetailProvider(assessmentId)),
+            onPressed: () =>
+                ref.invalidate(assessmentDetailProvider(assessmentId)),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedScreenBackground(
-        theme: ScreenBackgroundTheme.blueprintIso,
-        intensity: 0.7,
+      body: NaadyantraAnimatedBackground(
+        kind: NaadyantraBackgroundKind.assessmentDetails,
+        lightScrimOpacity: 0.88,
+        darkScrimOpacity: 0.70,
         child: assessmentAsync.when(
-          data: (assessment) => _AssessmentDetailBody(
-            assessment: assessment,
-            isDark: isDark,
-          ),
+          data: (assessment) =>
+              _AssessmentDetailBody(assessment: assessment, isDark: isDark),
           loading: () => const IndustrialLoadingView(
             message: 'Loading assessment record...',
           ),
@@ -67,18 +67,14 @@ class _AssessmentDetailBody extends StatelessWidget {
   final Assessment assessment;
   final bool isDark;
 
-  const _AssessmentDetailBody({
-    required this.assessment,
-    required this.isDark,
-  });
+  const _AssessmentDetailBody({required this.assessment, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     final score = assessment.score ?? 0.0;
-    final maxScore =
-        (assessment.maxScore != null && assessment.maxScore! > 0)
-            ? assessment.maxScore!
-            : 100.0;
+    final maxScore = (assessment.maxScore != null && assessment.maxScore! > 0)
+        ? assessment.maxScore!
+        : 100.0;
     final percentage = (score / maxScore).clamp(0.0, 1.0);
     final isPassing = percentage >= 0.7;
     final isReduced = MotionTokens.isReducedMotion(context);
@@ -346,9 +342,8 @@ class _AssessmentDetailBody extends StatelessWidget {
                 _buildInfoRow(
                   context,
                   label: 'Created At',
-                  value: DateFormat('yyyy-MM-dd HH:mm').format(
-                    assessment.createdAt.toLocal(),
-                  ),
+                  value: DateFormat('yyyy-MM-dd HH:mm')
+                      .format(assessment.createdAt.toLocal()),
                   isDark: isDark,
                 ),
                 const Divider(height: 1),
@@ -440,7 +435,8 @@ class _AssessmentDetailBody extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: valueColor ??
+                color:
+                    valueColor ??
                     (isDark ? AppColors.darkTextPrimary : AppColors.carbon),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),

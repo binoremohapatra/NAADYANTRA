@@ -27,13 +27,16 @@ class AppColors {
   static const Color alertOk = Color(0xFF2E7D32);
   static const Color alertInfo = Color(0xFF6B7280);
 
-  // Dark Theme Palette
-  static const Color darkCanvas = Color(0xFF141413);
-  static const Color darkSurface = Color(0xFF1E1D1B);
-  static const Color darkSurfaceElevated = Color(0xFF282724);
-  static const Color darkBorder = Color(0xFF383531);
-  static const Color darkTextPrimary = Color(0xFFF5F3EF);
-  static const Color darkTextSecondary = Color(0xFFA8A39C);
+  // Brand Secondary Surfaces
+  static const Color lightSurfaceSecondary = Color(0xFFF1EEE8);
+
+  // Dark Theme Palette (Charcoal & Precision Industrial)
+  static const Color darkCanvas = Color(0xFF0F1113);
+  static const Color darkSurface = Color(0xFF1C1E20);
+  static const Color darkSurfaceElevated = Color(0xFF252729);
+  static const Color darkBorder = Color(0xFF3A3D40);
+  static const Color darkTextPrimary = Color(0xFFF7F5F0);
+  static const Color darkTextSecondary = Color(0xFFB8B0A6);
 }
 
 /// Premium typography token system.
@@ -48,14 +51,13 @@ class AppTypography {
     Color? color,
     double? letterSpacing,
     double? height,
-  }) =>
-      GoogleFonts.spaceGrotesk(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-        letterSpacing: letterSpacing,
-        height: height,
-      );
+  }) => GoogleFonts.spaceGrotesk(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: letterSpacing,
+    height: height,
+  );
 
   /// Fetches Inter TextStyle — use for body, captions, labels.
   static TextStyle inter({
@@ -64,14 +66,13 @@ class AppTypography {
     Color? color,
     double? letterSpacing,
     double? height,
-  }) =>
-      GoogleFonts.inter(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-        letterSpacing: letterSpacing,
-        height: height,
-      );
+  }) => GoogleFonts.inter(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: letterSpacing,
+    height: height,
+  );
 
   /// Fetches JetBrains Mono TextStyle — use exclusively for sensor values,
   /// timestamps, device IDs, and technical identifiers.
@@ -80,13 +81,12 @@ class AppTypography {
     FontWeight fontWeight = FontWeight.w500,
     Color? color,
     double? letterSpacing,
-  }) =>
-      GoogleFonts.jetBrainsMono(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        color: color,
-        letterSpacing: letterSpacing ?? 0.0,
-      );
+  }) => GoogleFonts.jetBrainsMono(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: letterSpacing ?? 0.0,
+  );
 }
 
 /// Spacing constants — 4pt base grid.
@@ -258,64 +258,96 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: GoogleFonts.interTextTheme(const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w800,
-          color: AppColors.carbon,
-          letterSpacing: -0.5,
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.pureWhite,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.warmStone, width: 1),
         ),
-        displayMedium: TextStyle(
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
+        titleTextStyle: const TextStyle(
           color: AppColors.carbon,
-          letterSpacing: -0.5,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: AppColors.carbon,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.carbon,
-        ),
-        titleLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: AppColors.carbon,
         ),
-        titleMedium: TextStyle(
+        contentTextStyle: const TextStyle(
+          color: AppColors.warmGraphite,
           fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.carbon,
         ),
-        bodyLarge: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w400,
-          color: AppColors.carbon,
-          height: 1.5,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.pureWhite,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        bodyMedium: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          color: AppColors.warmGraphite,
-          height: 1.4,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.carbon,
+        contentTextStyle: const TextStyle(color: AppColors.pureWhite),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      textTheme: GoogleFonts.interTextTheme(
+        const TextTheme(
+          displayLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            color: AppColors.carbon,
+            letterSpacing: -0.5,
+          ),
+          displayMedium: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: AppColors.carbon,
+            letterSpacing: -0.5,
+          ),
+          displaySmall: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.carbon,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.carbon,
+          ),
+          titleLarge: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.carbon,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.carbon,
+          ),
+          bodyLarge: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: AppColors.carbon,
+            height: 1.5,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: AppColors.warmGraphite,
+            height: 1.4,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: AppColors.warmGraphite,
+            letterSpacing: 0.2,
+          ),
+          labelLarge: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.carbon,
+            letterSpacing: 0.5,
+          ),
         ),
-        bodySmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: AppColors.warmGraphite,
-          letterSpacing: 0.2,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.carbon,
-          letterSpacing: 0.5,
-        ),
-      )),
+      ),
     );
   }
 
@@ -445,54 +477,89 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: GoogleFonts.interTextTheme(const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w800,
-          color: AppColors.darkTextPrimary,
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.darkSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.darkBorder, width: 1),
         ),
-        displayMedium: TextStyle(
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
+        titleTextStyle: const TextStyle(
           color: AppColors.darkTextPrimary,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: AppColors.darkTextPrimary,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.darkTextPrimary,
-        ),
-        titleLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: AppColors.darkTextPrimary,
         ),
-        titleMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkTextPrimary,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 15,
-          color: AppColors.darkTextPrimary,
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 13,
+        contentTextStyle: const TextStyle(
           color: AppColors.darkTextSecondary,
-          height: 1.4,
+          fontSize: 14,
         ),
-        bodySmall: TextStyle(fontSize: 11, color: AppColors.darkTextSecondary),
-        labelLarge: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkTextPrimary,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.darkSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-      )),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.darkSurfaceElevated,
+        contentTextStyle: const TextStyle(color: AppColors.darkTextPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      textTheme: GoogleFonts.interTextTheme(
+        const TextTheme(
+          displayLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            color: AppColors.darkTextPrimary,
+          ),
+          displayMedium: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkTextPrimary,
+          ),
+          displaySmall: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkTextPrimary,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkTextPrimary,
+          ),
+          titleLarge: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkTextPrimary,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextPrimary,
+          ),
+          bodyLarge: TextStyle(
+            fontSize: 15,
+            color: AppColors.darkTextPrimary,
+            height: 1.5,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 13,
+            color: AppColors.darkTextSecondary,
+            height: 1.4,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 11,
+            color: AppColors.darkTextSecondary,
+          ),
+          labelLarge: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextPrimary,
+          ),
+        ),
+      ),
     );
   }
 }

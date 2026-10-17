@@ -48,9 +48,10 @@ class _IndustrialCardState extends State<IndustrialCard>
       vsync: this,
       duration: const Duration(milliseconds: 110),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.985).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.985,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -58,7 +59,6 @@ class _IndustrialCardState extends State<IndustrialCard>
     _controller.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +73,9 @@ class _IndustrialCardState extends State<IndustrialCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.title != null || widget.leadingIcon != null || widget.trailing != null) ...[
+        if (widget.title != null ||
+            widget.leadingIcon != null ||
+            widget.trailing != null) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(
@@ -97,7 +99,10 @@ class _IndustrialCardState extends State<IndustrialCard>
                         ),
                       if (widget.subtitle != null) ...[
                         const SizedBox(height: 2),
-                        Text(widget.subtitle!, style: theme.textTheme.bodySmall),
+                        Text(
+                          widget.subtitle!,
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ],
                     ],
                   ),
@@ -108,7 +113,10 @@ class _IndustrialCardState extends State<IndustrialCard>
           ),
           Divider(height: 1, thickness: 1, color: defaultBorder),
         ],
-        Padding(padding: widget.padding ?? const EdgeInsets.all(16), child: widget.child),
+        Padding(
+          padding: widget.padding ?? const EdgeInsets.all(16),
+          child: widget.child,
+        ),
       ],
     );
 
@@ -117,7 +125,10 @@ class _IndustrialCardState extends State<IndustrialCard>
       decoration: BoxDecoration(
         color: widget.backgroundColor ?? defaultBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.borderColor ?? defaultBorder, width: 1),
+        border: Border.all(
+          color: widget.borderColor ?? defaultBorder,
+          width: 1,
+        ),
         boxShadow: isDark
             ? null
             : [
@@ -158,10 +169,8 @@ class _IndustrialCardState extends State<IndustrialCard>
 
     return AnimatedBuilder(
       animation: _scaleAnimation,
-      builder: (context, child) => Transform.scale(
-        scale: _scaleAnimation.value,
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.scale(scale: _scaleAnimation.value, child: child),
       child: cardWidget,
     );
   }

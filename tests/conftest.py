@@ -2,7 +2,6 @@
 Test configuration and fixtures for NAADYANTRA backend tests.
 """
 import pytest
-import os
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -33,23 +32,16 @@ TEST_DEVICE_KEY = "test-device-key-123"
 
 @pytest.fixture(scope="function")
 def db():
-    """Create and clean database for each test."""
-    # Create all tables
+    """Create a clean, isolated database for each test function."""
+    # Drop everything first so no state leaks from previous tests,
+    # then recreate the full schema.
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
-        # Dispose engine to release file locks on Windows
-        engine.dispose()
-        # Remove test database file
-        if os.path.exists("test_hazguard.db"):
-            try:
-                os.remove("test_hazguard.db")
-            except PermissionError:
-                # File still locked, will be cleaned up on next run
-                pass
 
 
 @pytest.fixture(scope="function")
@@ -110,6 +102,6 @@ def test_device(db):
 
 
 @pytest.fixture(scope="function")
-def client():
-    """Get test client."""
+def client(db):
+    """Get test client backed by a fresh per-test SQLite database."""
     return TestClient(app)

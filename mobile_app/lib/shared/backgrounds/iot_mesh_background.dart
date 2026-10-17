@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -128,7 +129,9 @@ class _IoTMeshPainter extends CustomPainter {
       ..strokeWidth = 1.0;
 
     final nodeFillPaint = Paint()..style = PaintingStyle.fill;
-    final nodeRingPaint = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2;
+    final nodeRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
     final packetPaint = Paint()..style = PaintingStyle.fill;
 
     // Calculate dynamic node positions with smooth harmonic drift

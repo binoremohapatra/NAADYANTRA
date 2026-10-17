@@ -91,7 +91,8 @@ class _MetricReadoutState extends State<MetricReadout>
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
                 fontFeatures: const [FontFeature.tabularFigures()],
-                color: widget.accentColor ??
+                color:
+                    widget.accentColor ??
                     (isDark ? AppColors.darkTextPrimary : AppColors.carbon),
               ),
             ),
@@ -109,7 +110,8 @@ class _MetricReadoutState extends State<MetricReadout>
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
             fontFeatures: const [FontFeature.tabularFigures()],
-            color: widget.accentColor ??
+            color:
+                widget.accentColor ??
                 (isDark ? AppColors.darkTextPrimary : AppColors.carbon),
           ),
         ),
@@ -122,7 +124,8 @@ class _MetricReadoutState extends State<MetricReadout>
         color: isDark ? AppColors.darkSurface : AppColors.pureWhite,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: widget.accentColor?.withValues(alpha: 0.35) ??
+          color:
+              widget.accentColor?.withValues(alpha: 0.35) ??
               (isDark ? AppColors.darkBorder : AppColors.warmStone),
           width: 1,
         ),
@@ -145,7 +148,8 @@ class _MetricReadoutState extends State<MetricReadout>
                 Icon(
                   widget.icon,
                   size: 16,
-                  color: widget.accentColor ??
+                  color:
+                      widget.accentColor ??
                       (isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.warmGraphite),
@@ -214,10 +218,8 @@ class _MetricReadoutState extends State<MetricReadout>
       behavior: HitTestBehavior.translucent,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
-        builder: (context, child) => Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        ),
+        builder: (context, child) =>
+            Transform.scale(scale: _scaleAnimation.value, child: child),
         child: content,
       ),
     );

@@ -17,45 +17,52 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 void main() {
   group('Diagnostic State Views (Loading, Error, Empty)', () {
-    testWidgets('IndustrialLoadingView renders message and progress indicator', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: IndustrialLoadingView(message: 'Calibrating acoustic sensors...'),
-          ),
-        ),
-      );
-
-      expect(find.text('Calibrating acoustic sensors...'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    });
-
-    testWidgets('IndustrialErrorView renders title, message, and retry button', (
-      WidgetTester tester,
-    ) async {
-      bool retried = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: IndustrialErrorView(
-              title: 'Ingestion Bus Timeout',
-              message: 'ESP32 failed handshake on serial channel',
-              onRetry: () => retried = true,
+    testWidgets(
+      'IndustrialLoadingView renders message and progress indicator',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: IndustrialLoadingView(
+                message: 'Calibrating acoustic sensors...',
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Ingestion Bus Timeout'), findsOneWidget);
-      expect(find.text('ESP32 failed handshake on serial channel'), findsOneWidget);
-      expect(find.text('Retry Connection'), findsOneWidget);
+        expect(find.text('Calibrating acoustic sensors...'), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      },
+    );
 
-      await tester.tap(find.text('Retry Connection'));
-      expect(retried, isTrue);
-    });
+    testWidgets(
+      'IndustrialErrorView renders title, message, and retry button',
+      (WidgetTester tester) async {
+        bool retried = false;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: IndustrialErrorView(
+                title: 'Ingestion Bus Timeout',
+                message: 'ESP32 failed handshake on serial channel',
+                onRetry: () => retried = true,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Ingestion Bus Timeout'), findsOneWidget);
+        expect(
+          find.text('ESP32 failed handshake on serial channel'),
+          findsOneWidget,
+        );
+        expect(find.text('Retry Connection'), findsOneWidget);
+
+        await tester.tap(find.text('Retry Connection'));
+        expect(retried, isTrue);
+      },
+    );
 
     testWidgets('IndustrialEmptyView renders action button and message', (
       WidgetTester tester,
@@ -88,11 +95,7 @@ void main() {
     testWidgets('HelpScreen renders safety warning and category filter pills', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: HelpScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: HelpScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -106,15 +109,13 @@ void main() {
     testWidgets('HelpScreen expands question accordion on tap', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: HelpScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: HelpScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      final questionFinder = find.text('Why are Heat and UV sensors marked DISABLED?');
+      final questionFinder = find.text(
+        'Why are Heat and UV sensors marked DISABLED?',
+      );
       expect(questionFinder, findsOneWidget);
 
       await tester.tap(questionFinder);
@@ -143,7 +144,8 @@ void main() {
         score: 88.0,
         maxScore: 100.0,
         outcome: 'PASS',
-        scoringExplanation: 'Candidate verified leak isolation within tolerance.',
+        scoringExplanation:
+            'Candidate verified leak isolation within tolerance.',
         createdBy: 'trainer_01',
         createdAt: DateTime(2026, 10, 13, 10, 0),
       );
@@ -162,9 +164,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(
-            home: AssessmentListScreen(),
-          ),
+          child: const MaterialApp(home: AssessmentListScreen()),
         ),
       );
       await tester.pump();
@@ -198,9 +198,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            assessmentDetailProvider('eval-detail-99').overrideWith(
-              (ref) => Future.value(mockAssessment),
-            ),
+            assessmentDetailProvider('eval-detail-99')
+                .overrideWith((ref) => Future.value(mockAssessment)),
           ],
           child: const MaterialApp(
             home: AssessmentDetailScreen(assessmentId: 'eval-detail-99'),
@@ -219,47 +218,49 @@ void main() {
   });
 
   group('Session List Screen & Offline Cache Banner', () {
-    testWidgets('SessionListScreen displays OFFLINE BUFFER banner when data is cached', (
-      WidgetTester tester,
-    ) async {
-      final mockSession = Session(
-        id: 1,
-        sessionId: 77,
-        deviceId: 'SIH-NODE-01',
-        traineeId: 'TR-OFFLINE',
-        startedAt: DateTime(2026, 10, 13, 8, 30),
-        endedAt: DateTime(2026, 10, 13, 9, 30),
-        sessionMetadata: const {},
-        createdAt: DateTime(2026, 10, 13, 8, 30),
-      );
+    testWidgets(
+      'SessionListScreen displays OFFLINE BUFFER banner when data is cached',
+      (WidgetTester tester) async {
+        final mockSession = Session(
+          id: 1,
+          sessionId: 77,
+          deviceId: 'SIH-NODE-01',
+          traineeId: 'TR-OFFLINE',
+          startedAt: DateTime(2026, 10, 13, 8, 30),
+          endedAt: DateTime(2026, 10, 13, 9, 30),
+          sessionMetadata: const {},
+          createdAt: DateTime(2026, 10, 13, 8, 30),
+        );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sessionsProvider('1,20').overrideWith(
-              (ref) => Future.value(
-                PaginatedResponse<Session>(
-                  total: 1,
-                  page: 1,
-                  pageSize: 20,
-                  items: [mockSession],
-                  isFromCache: true,
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sessionsProvider('1,20').overrideWith(
+                (ref) => Future.value(
+                  PaginatedResponse<Session>(
+                    total: 1,
+                    page: 1,
+                    pageSize: 20,
+                    items: [mockSession],
+                    isFromCache: true,
+                  ),
                 ),
               ),
-            ),
-          ],
-          child: const MaterialApp(
-            home: SessionListScreen(),
+            ],
+            child: const MaterialApp(home: SessionListScreen()),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('SESSION ARCHIVE'), findsOneWidget);
-      expect(find.text('OFFLINE BUFFER — DISPLAYING PERSISTED SQLITE CACHE'), findsOneWidget);
-      expect(find.text('SESSION #77'), findsOneWidget);
-    });
+        expect(find.text('SESSION ARCHIVE'), findsOneWidget);
+        expect(
+          find.text('OFFLINE BUFFER — DISPLAYING PERSISTED SQLITE CACHE'),
+          findsOneWidget,
+        );
+        expect(find.text('SESSION #77'), findsOneWidget);
+      },
+    );
   });
 
   group('Device Details Screen — Telemetry Visibility & Honest Disclosure', () {
@@ -342,146 +343,157 @@ void main() {
       serverTimestamp: DateTime(2026, 10, 13, 12, 5),
     );
 
-    testWidgets('Renders real sensor metrics and honest disabled/unsupported hardware statuses', (
-      WidgetTester tester,
-    ) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+    testWidgets(
+      'Renders real sensor metrics and honest disabled/unsupported hardware statuses',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            singleDeviceStatusProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value(mockStatus),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              singleDeviceStatusProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value(mockStatus)),
+              singleDeviceDetailsProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value(mockDevice)),
+              deviceEventsProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value([mockEvent])),
+              deviceSummariesProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value([mockSummary])),
+            ],
+            child: const MaterialApp(
+              home: DeviceDetailsScreen(deviceId: 'SIH-NODE-01'),
             ),
-            singleDeviceDetailsProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value(mockDevice),
-            ),
-            deviceEventsProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value([mockEvent]),
-            ),
-            deviceSummariesProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value([mockSummary]),
-            ),
-          ],
-          child: const MaterialApp(
-            home: DeviceDetailsScreen(deviceId: 'SIH-NODE-01'),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 700));
 
-      // Header verification
-      expect(find.text('NODE: SIH-NODE-01'), findsOneWidget);
-      expect(find.textContaining('2.4.1'), findsWidgets);
+        // Header verification
+        expect(find.text('NODE: SIH-NODE-01'), findsOneWidget);
+        expect(find.textContaining('2.4.1'), findsWidgets);
 
-      // Tab 1: Live & Sensors
-      expect(find.text('382.5'), findsOneWidget); // Real Acoustic RMS
-      expect(find.text('+45'), findsOneWidget); // Real Gas Delta
-      expect(find.text('0.8'), findsOneWidget); // Real Gas Rs/R0 (formatted to 1 dec by readout tween)
-      expect(find.text('DRY'), findsOneWidget); // Real Moisture state
+        // Tab 1: Live & Sensors
+        expect(find.text('382.5'), findsOneWidget); // Real Acoustic RMS
+        expect(find.text('+45'), findsOneWidget); // Real Gas Delta
+        expect(
+          find.text('0.8'),
+          findsOneWidget,
+        ); // Real Gas Rs/R0 (formatted to 1 dec by readout tween)
+        expect(find.text('DRY'), findsOneWidget); // Real Moisture state
 
-      // Honest hardware disclosures (Zero fabrication)
-      expect(find.text('DISABLED'), findsNWidgets(2)); // Pyrometer & UV disabled in rig
-      expect(find.text('UNSUPPORTED / HARDWARE NOT MOUNTED'), findsOneWidget); // IMU unmounted
-      expect(find.text('UNSUPPORTED / NOT APPLICABLE'), findsOneWidget); // EMG unmounted
-    });
+        // Honest hardware disclosures (Zero fabrication)
+        expect(
+          find.text('DISABLED'),
+          findsNWidgets(2),
+        ); // Pyrometer & UV disabled in rig
+        expect(
+          find.text('UNSUPPORTED / HARDWARE NOT MOUNTED'),
+          findsOneWidget,
+        ); // IMU unmounted
+        expect(
+          find.text('UNSUPPORTED / NOT APPLICABLE'),
+          findsOneWidget,
+        ); // EMG unmounted
+      },
+    );
 
-    testWidgets('Navigates across Event Timeline, Summaries, Diagnostics, and Raw Telemetry tabs', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            singleDeviceStatusProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value(mockStatus),
+    testWidgets(
+      'Navigates across Event Timeline, Summaries, Diagnostics, and Raw Telemetry tabs',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              singleDeviceStatusProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value(mockStatus)),
+              singleDeviceDetailsProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value(mockDevice)),
+              deviceEventsProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value([mockEvent])),
+              deviceSummariesProvider('SIH-NODE-01')
+                  .overrideWith((ref) => Future.value([mockSummary])),
+            ],
+            child: const MaterialApp(
+              home: DeviceDetailsScreen(deviceId: 'SIH-NODE-01'),
             ),
-            singleDeviceDetailsProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value(mockDevice),
-            ),
-            deviceEventsProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value([mockEvent]),
-            ),
-            deviceSummariesProvider('SIH-NODE-01').overrideWith(
-              (ref) => Future.value([mockSummary]),
-            ),
-          ],
-          child: const MaterialApp(
-            home: DeviceDetailsScreen(deviceId: 'SIH-NODE-01'),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 700));
 
-      // Navigate to EVENT TIMELINE tab
-      await tester.tap(find.text('EVENT TIMELINE'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+        // Navigate to EVENT TIMELINE tab
+        await tester.tap(find.text('EVENT TIMELINE'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.textContaining('LEAK_DETECTED'), findsOneWidget);
-      expect(find.textContaining('RMS_EXCEEDED'), findsOneWidget);
+        expect(find.textContaining('LEAK_DETECTED'), findsOneWidget);
+        expect(find.textContaining('RMS_EXCEEDED'), findsOneWidget);
 
-      // Navigate to SUMMARIES tab
-      await tester.tap(find.text('SUMMARIES'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+        // Navigate to SUMMARIES tab
+        await tester.tap(find.text('SUMMARIES'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 700));
 
-      expect(find.text('SESSION #42 SUMMARY'), findsOneWidget);
-      expect(find.text('DURATION: 300s'), findsOneWidget);
-      expect(find.text('WINDOWS SAMPLED'), findsOneWidget);
+        expect(find.text('SESSION #42 SUMMARY'), findsOneWidget);
+        expect(find.text('DURATION: 300s'), findsOneWidget);
+        expect(find.text('WINDOWS SAMPLED'), findsOneWidget);
 
-      // Navigate to DIAGNOSTICS tab
-      await tester.tap(find.text('DIAGNOSTICS'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+        // Navigate to DIAGNOSTICS tab
+        await tester.tap(find.text('DIAGNOSTICS'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('HARDWARE & BUS SPECIFICATIONS'), findsOneWidget);
-      expect(find.textContaining('4000 Hz'), findsOneWidget);
+        expect(find.text('HARDWARE & BUS SPECIFICATIONS'), findsOneWidget);
+        expect(find.textContaining('4000 Hz'), findsOneWidget);
 
-      // Navigate to RAW TELEMETRY tab
-      await tester.ensureVisible(find.text('RAW TELEMETRY'));
-      await tester.tap(find.text('RAW TELEMETRY'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+        // Navigate to RAW TELEMETRY tab
+        await tester.ensureVisible(find.text('RAW TELEMETRY'));
+        await tester.tap(find.text('RAW TELEMETRY'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.textContaining('LATEST EVENT PAYLOADS'), findsOneWidget);
-      expect(find.textContaining('EVENT #101'), findsOneWidget);
-    });
+        expect(find.textContaining('LATEST EVENT PAYLOADS'), findsOneWidget);
+        expect(find.textContaining('EVENT #101'), findsOneWidget);
+      },
+    );
 
     group('Offline Connectivity State Providers', () {
-      test('isOfflineProvider resolves true when connectivity stream emits none', () async {
-        final container = ProviderContainer(
-          overrides: [
-            connectivityStreamProvider.overrideWith(
-              (ref) => Stream.value([ConnectivityResult.none]),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
+      test(
+        'isOfflineProvider resolves true when connectivity stream emits none',
+        () async {
+          final container = ProviderContainer(
+            overrides: [
+              connectivityStreamProvider.overrideWith(
+                (ref) => Stream.value([ConnectivityResult.none]),
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
 
-        await container.read(connectivityStreamProvider.future);
-        final isOffline = container.read(isOfflineProvider);
-        expect(isOffline, isTrue);
-      });
+          await container.read(connectivityStreamProvider.future);
+          final isOffline = container.read(isOfflineProvider);
+          expect(isOffline, isTrue);
+        },
+      );
 
-      test('isOfflineProvider resolves false when connectivity stream emits wifi', () async {
-        final container = ProviderContainer(
-          overrides: [
-            connectivityStreamProvider.overrideWith(
-              (ref) => Stream.value([ConnectivityResult.wifi]),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
+      test(
+        'isOfflineProvider resolves false when connectivity stream emits wifi',
+        () async {
+          final container = ProviderContainer(
+            overrides: [
+              connectivityStreamProvider.overrideWith(
+                (ref) => Stream.value([ConnectivityResult.wifi]),
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
 
-        await container.read(connectivityStreamProvider.future);
-        final isOffline = container.read(isOfflineProvider);
-        expect(isOffline, isFalse);
-      });
+          await container.read(connectivityStreamProvider.future);
+          final isOffline = container.read(isOfflineProvider);
+          expect(isOffline, isFalse);
+        },
+      );
     });
   });
 }
-
