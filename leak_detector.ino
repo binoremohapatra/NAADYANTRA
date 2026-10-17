@@ -1255,8 +1255,8 @@ void setup() {
   if (!gFeat) fatal("[fatal] Feature buffer allocation failed (enable PSRAM or reduce window size)");
 
   Wire.begin(PIN_SDA, PIN_SCL);
-  Wire.setClock(100000);                           // Configure I2C bus clock to 100kHz for sensor compatibility
-  gOledOk = gOled.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false);   // Initialize OLED display (continue gracefully if absent)
+  Wire.setClock(100000);                          
+  gOledOk = gOled.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false);   
   if (gOledOk) {
     gOled.clearDisplay(); gOled.setTextColor(SSD1306_WHITE);
     gOled.setTextSize(2); gOled.setCursor(8, 8);  gOled.print("LEAK SENSE");

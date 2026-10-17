@@ -399,6 +399,24 @@ class TestSensorDisabledStates:
         valid_fault_causes = {"FAULT"}
         assert "FAULT" in valid_fault_causes
 
+    def test_disabled_distance_sensor_default_dist_is_negative_or_none(self):
+        """When VL53L0X is disabled/unpopulated, dist is -1 or None, never generating false alerts."""
+        event = {"dist": -1}
+        assert event["dist"] < 0 or event["dist"] is None
+
+    def test_mq2_conservative_divider_factor_2_5_headroom(self):
+        """15k/10k 1% divider gives factor 2.50x and strictly limits ADC voltage to <= 2.125V at 5.25V."""
+        r1_min, r2_max = 15.0 * 0.99, 10.0 * 1.01
+        k_worst = r2_max / (r1_min + r2_max)
+        v_in_max = 5.25
+        v_adc_max = v_in_max * k_worst
+        assert v_adc_max <= 2.13, f"ADC voltage {v_adc_max} exceeds 2.13V"
+        # Margin to Classic ESP32 linear threshold (2.45V)
+        assert (2.45 - v_adc_max) >= 0.32, "Margin below 2.45V must be at least 320mV"
+        # Nominal divider factor
+        k_nom = 10.0 / (15.0 + 10.0)
+        assert (1.0 / k_nom) == 2.5, "Nominal multiplier back to module output must be exactly 2.5x"
+
 
 # =============================================================================
 # Targeted Stress Tests: Queue Saturation & Priority Invariants

@@ -467,6 +467,13 @@ class _EventDetailSheet extends StatelessWidget {
                     value: '${event.temperature!.toStringAsFixed(1)} °C',
                     isDark: isDark,
                   ),
+                if (event.distanceMm != null)
+                  _DetailRow(
+                    icon: Icons.straighten_rounded,
+                    label: 'Distance',
+                    value: '${event.distanceMm!} mm',
+                    isDark: isDark,
+                  ),
                 if (event.hazardStateLabel != null)
                   _DetailRow(
                     icon: Icons.shield_outlined,

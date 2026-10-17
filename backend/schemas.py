@@ -162,6 +162,7 @@ class EventResponse(BaseModel):
     gas_ratio: Optional[float]
     temperature: Optional[float]
     uv_delta: Optional[int]
+    distance_mm: Optional[int] = None
     wet: Optional[bool]
     firmware_version: Optional[str]
     raw_payload: Dict[str, Any]

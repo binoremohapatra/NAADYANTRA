@@ -18,6 +18,7 @@ class Event {
   final double? gasRatio;
   final double? temperature;
   final int? uvDelta;
+  final int? distanceMm;
   final bool? wet;
   final String? firmwareVersion;
   final Map<String, dynamic> rawPayload;
@@ -48,6 +49,7 @@ class Event {
     this.gasRatio,
     this.temperature,
     this.uvDelta,
+    this.distanceMm,
     this.wet,
     this.firmwareVersion,
     required this.rawPayload,
@@ -61,6 +63,7 @@ class Event {
   bool get hasMoistureData => wet != null;
   bool get hasTemperatureData => temperature != null;
   bool get hasUvData => uvDelta != null;
+  bool get hasDistanceData => distanceMm != null;
   bool get hasHazardData => hazardState != null;
 
   /// Human-readable label for the hazard fusion state.
@@ -101,6 +104,9 @@ class Event {
       gasRatio: (json['gas_ratio'] as num?)?.toDouble(),
       temperature: (json['temperature'] as num?)?.toDouble(),
       uvDelta: json['uv_delta'] as int?,
+      distanceMm: _intFromPayload(json['raw_payload'], 'dist') ??
+          _intFromPayload(json['raw_payload'], 'dist_mm') ??
+          (json['distance_mm'] as int?),
       wet: json['wet'] == null
           ? null
           : (json['wet'] is bool
@@ -145,6 +151,7 @@ class Event {
       'gas_ratio': gasRatio,
       'temperature': temperature,
       'uv_delta': uvDelta,
+      'distance_mm': distanceMm,
       'wet': wet,
       'firmware_version': firmwareVersion,
       'raw_payload': rawPayload,

@@ -125,23 +125,28 @@ Per [Espressif's Official ADC Documentation](https://docs.espressif.com/projects
 - **ESP32-S3 ADC1**: Redesigned SAR ADC with Curve Fitting calibration (`adc_cali_create_scheme_curve_fitting()`). With $12\text{ dB}$ attenuation (`ADC_ATTEN_DB_12`), the recommended calibrated range is **$150\text{ mV}$ to $3100\text{ mV}$ ($3.10\text{V}$)**.
 - **Absolute Maximum GPIO Rating**: $V_{DD} + 0.3\text{V} = 3.6\text{V}$. Direct exposure to $5.0\text{V}$ will permanently damage the silicon.
 
-#### Verified Resistor & Voltage Margin Calculation ($12\text{k}\Omega / 10\text{k}\Omega\ 1\%$)
+#### Verified Resistor & Voltage Margin Calculation ($15\text{k}\Omega / 10\text{k}\Omega\ 1\%$)
 - MQ-2 Supply Rail ($V_{CC}$): $5.0\text{V} \pm 5\%$ tolerance $\implies V_{in,\max} = 5.25\text{V}$.
+- Selected Resistors: $R_1 (\text{top}) = 15\text{k}\Omega\ 1\%$, $R_2 (\text{bottom}) = 10\text{k}\Omega\ 1\%$.
+- Nominal Divider Ratio & Scaling Factor:
+  $$K_{\text{nom}} = \frac{10\text{k}\Omega}{15\text{k}\Omega + 10\text{k}\Omega} = 0.4000 \implies \text{Multiplier Factor } = \frac{1}{0.4000} = 2.50\times$$
+  $$V_{\text{ADC},\text{nom}} = 5.0\text{V} \times 0.4000 = 2.000\text{V}$$
 - Worst-Case Resistor Tolerance ($\pm 1\%$):
-  - $R_1 (\text{top}) = 12\text{k}\Omega \times 0.99 = 11.88\text{k}\Omega$
+  - $R_1 (\text{top}) = 15\text{k}\Omega \times 0.99 = 14.85\text{k}\Omega$
   - $R_2 (\text{bottom}) = 10\text{k}\Omega \times 1.01 = 10.10\text{k}\Omega$
   - Worst-Case Ratio:
-    $$K_{\max} = \frac{10.10\text{k}\Omega}{11.88\text{k}\Omega + 10.10\text{k}\Omega} = \frac{10.10}{21.98} \approx 0.4595$$
-- **Maximum ADC Input Voltage**:
-  $$V_{\text{ADC},\max} = 5.25\text{V} \times 0.4595 = 2.412\text{V}$$
+    $$K_{\max} = \frac{10.10\text{k}\Omega}{14.85\text{k}\Omega + 10.10\text{k}\Omega} = \frac{10.10}{24.95} \approx 0.4048$$
+- **Maximum ADC Input Voltage Under Worst-Case Tolerance**:
+  $$V_{\text{ADC},\max} = 5.25\text{V} \times 0.4048 = 2.125\text{V} \approx 2.13\text{V}$$
 - **Verification of Margins**:
-  1. Margin to Classic ESP32 Linear Limit ($2.450\text{V}$): **$+38\text{ mV}$ (1.6% margin under worst-case tolerance)**.
-  2. Margin to ESP32-S3 Linear Limit ($3.100\text{V}$): **$+688\text{ mV}$ (28.5% margin)**.
-  3. Margin to Absolute Maximum Pin Rating ($3.600\text{V}$): **$+1.188\text{V}$ (49.2% margin)**.
-- **Implementation Rule**: Firmware voltage conversion must use ESP-IDF eFuse calibration APIs rather than naive straight-line math (`raw * 3.3 / 4095.0`).
+  1. Margin to Classic ESP32 Linear Limit ($2.450\text{V}$): **$+325\text{ mV}$ (13.3% margin under worst-case tolerance)**.
+  2. Margin to ESP32-S3 Linear Limit ($3.100\text{V}$): **$+975\text{ mV}$ (31.5% margin)**.
+  3. Margin to Absolute Maximum Pin Rating ($3.600\text{V}$): **$+1.475\text{V}$ (41.0% margin)**.
+- **Implementation Rule**: Firmware scaling constant is `#define GAS_DIV_FACTOR 2.5f`. Firmware voltage conversion must use ESP-IDF eFuse calibration APIs (`esp_adc_cal_characterize()` on Classic ESP32, `adc_cali_raw_to_voltage()` on ESP32-S3) rather than naive straight-line math (`raw * 3.3 / 4095.0`).
+- **Physical Verification Requirement**: Bench verification with a precision DMM must confirm that under clean air and hydrocarbon exposure, the junction voltage never exceeds $2.13\text{V}$.
 
 ```text
-MQ-2 Analog Out (0 - 5.25V) ───[12k 1%]───┬───► PIN_GAS (ADC1, 0 - 2.41V Max)
+MQ-2 Analog Out (0 - 5.25V) ───[15k 1%]───┬───► PIN_GAS (ADC1, 0 - 2.13V Max)
                                           │
                                         [10k 1%] ──┬── [10nF Ceramic] to GND
                                           │        │
@@ -154,11 +159,28 @@ MQ-2 Analog Out (0 - 5.25V) ───[12k 1%]───┬───► PIN_GAS (A
 
 ### 2.3 Power System Architecture, TP4056 Topology & Reconciled Energy Budget
 
+#### Battery Rail, LDO Dropout & Regulated Supply Architecture
+- **LDO Dropout Analysis**:
+  - The AP2112K specifies a typical dropout of $V_{\text{drop}} \approx 250\text{ mV}$ at full $600\text{ mA}$ load, and approximately $125 - 150\text{ mV}$ at the system's $150 - 200\text{ mA}$ average operating current.
+  - The ME6211 specifies a dropout of $V_{\text{drop}} \approx 100 - 140\text{ mV}$ at $100 - 200\text{ mA}$.
+  - When feeding a 3.3V LDO directly from the 1S LiPo rail ($3.0\text{V} - 4.2\text{V}$ nominal $3.7\text{V}$), as the battery discharges below $3.45\text{V}$ ($3.3\text{V} + 0.15\text{V}$ dropout), the LDO exits regulation and the 3.3V rail begins to sag. If the cell reaches $3.0\text{V}$, the 3.3V rail drops to $\approx 2.85 - 2.90\text{V}$, which threatens brownout detector resets during Wi-Fi transmission bursts (peak currents up to $350\text{ mA}$).
+- **Recommended Supply Architecture (Boost-Derived MCU Supply)**:
+  - To guarantee a rock-solid 3.3V rail across the entire discharge curve, feed the MT3608 5.0V regulated boost output directly into the development board's **5V / VIN pin**.
+  - Because the MT3608 boost converter operates down to $2.0\text{V}$ input (well below the battery cutoff), the 5.0V rail remains solidly at 5.0V until the cell is exhausted. The onboard development board LDO receives a constant 5.0V ($1.7\text{V}$ of headroom), completely isolating the 3.3V MCU and analog rail from battery voltage sag.
+- **Defensible Low-Battery Cutoff Thresholds**:
+  For designs monitoring the battery rail via an ADC voltage divider:
+  - **Soft Warning Cutoff ($3.55\text{V}$)**: Triggers an OLED low-battery warning icon and intermittent audio cue (10–15% capacity remaining).
+  - **Hard Shutdown Cutoff ($3.45\text{V}$)**: Initiates ESP32 deep sleep ($< 20\mu\text{A}$), safely ceasing telemetry and Wi-Fi before LDO dropout can cause brownout instability, and protecting the LiPo cell well above the DW01A protection IC emergency cutoff ($2.4\text{V}$).
+- **USB VBUS vs. External Supply Conflict Mitigation**:
+  - Development boards (NodeMCU-32S, ESP32-S3-DevKitC) feature an onboard Schottky diode (e.g., MBR0520) between USB VBUS (5V) and the 5V / VIN pin.
+  - If feeding external 5.0V from the MT3608 boost converter into the 5V pin while simultaneously plugging in a PC USB cable for flashing/debugging, the two 5V sources can conflict, resulting in back-feeding into the USB port or circulating ground currents.
+  - **Safety Directive**: **Always switch the main battery SPST switch OFF** before plugging in the USB-C cable for firmware flashing or serial debugging. For permanent dual-feed safety, a series Schottky diode (e.g., SS14 or 1N5819) or ideal diode OR-ing circuit must isolate the MT3608 5V output from the MCU VIN pin.
+
 #### Corrected Hardware Power Topology Diagram
-The TP4056 board with integrated protection (DW01A + 8205A) separates battery charging from load draw. The MT3608 is an **asynchronous (non-synchronous) step-up boost converter** with an external Schottky rectifier diode:
+The TP4056 board with integrated protection (DW01A + 8205A) separates battery charging from load draw. The MT3608 is an **asynchronous step-up boost converter** with an external Schottky rectifier diode:
 
 ```text
-[EXTERNAL 5V USB SOURCE]
+[EXTERNAL 5V USB CHARGER]
        │
    (USB-C Port)
        │
@@ -174,23 +196,21 @@ The TP4056 board with integrated protection (DW01A + 8205A) separates battery ch
        ▼
 [MAIN SPST POWER SWITCH]
        │
-       ├─────────────────────────────────────────────┐
-       │ (Battery Rail: 3.0V - 4.2V, 3.7V Nom)       │
-       ▼                                             ▼
-[MT3608 Asynchronous Step-Up Converter]       [AP2112K / ME6211 3.3V LDO]
-(External SS34 Schottky, ~85% Efficiency)    (Low-Dropout Linear, ~89.2% Eff)
-       │                                             │
-       ▼                                             ▼
-  +5.0V Regulated Rail                          +3.3V Regulated Rail
-  ├── MQ-2 Heater (RH ~31Ω, ~161mA, 805mW)     ├── ESP32-S3 MCU (~140mA avg with Wi-Fi)
-  └── Piezoceramic Buzzer (~5mA time-avg)      ├── Dual MCP6002 Op-Amp (0.6mA)
-                                               ├── SSD1306 OLED (15mA)
-                                               ├── MLX90614 Pyrometer (1.5mA, if fitted)
-                                               └── System LEDs (5mA)
-
-[BENCHTOP LAB POWER ALTERNATIVE (STATIONARY)]
-External 9V - 12V DC Wall Adapter ──► [MP1584 Buck Converter] ──► +5.0V Rail Directly
-*(Never connect a 12V buck regulator directly to a Li-ion cell; it is strictly for bench testing).*
+       ├────────────────────────────────────────────────┐
+       │ (Battery Rail: 3.45V - 4.2V, 3.7V Nom)         │
+       ▼                                                ▼
+[MT3608 Asynchronous Step-Up Converter]          [Optional External 3.3V LDO]
+(SS34 Schottky, ~85% Eff, 2.0V-24V in)          (AP2112K / ME6211, ~89% Eff)
+       │                                                │
+       ▼                                                ▼
+  +5.0V Regulated Rail                            +3.3V Regulated Rail
+  ├── MQ-2 Heater (RH ~31Ω, ~161mA, 805mW)        ├── MCP6002 Op-Amp (0.6mA)
+  ├── Piezoceramic Buzzer (~5mA time-avg)         ├── SSD1306 OLED (15mA)
+  ├── 100µF Low-ESR Decoupling Capacitor          ├── MLX90614 Pyrometer (1.5mA, if fitted)
+  └── [Schottky Isolation SS14]                   ├── Diagnostic LEDs (5mA)
+             │                                    └── 47µF Tantalum Decoupling
+             ▼
+      ESP32 VIN / 5V Pin ──► [Onboard LDO] ──► ESP32 Core & Wi-Fi (3.3V Rail)
 ```
 
 #### Critical TP4056 Simultaneous Charge-and-Load Limitation
@@ -201,27 +221,31 @@ External 9V - 12V DC Wall Adapter ──► [MP1584 Buck Converter] ──► +5
 > 2. Because the system load continuously draws current, the TP4056 may never detect the $C/10$ charge termination threshold ($100\text{ mA}$), preventing the charge cycle from terminating properly.
 > 3. **Operational Directive**: The prototype wearable must be switched **OFF** via the SPST power switch during battery charging. For Revision 2.0, a dedicated power-path IC (e.g., TI BQ24075 or Microchip MCP73871) will be integrated.
 
-#### Reconciled Component Energy Budget & Autonomy
-All figures recalculated from electrical fundamentals:
+#### Reconciled Component Energy Budget, Transients & Autonomy
+Recalculated with converter losses, haptic motor inrush transients, and realistic operating duty cycle:
 
 | Subsystem Component | Operating Rail | Operating Current | Electrical Power | Battery Current @ 3.7V Nom | Power from Battery |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **MQ-2 Gas Heater (Continuous)** | $5.0\text{V}$ | $161\text{ mA}$ ($31\Omega$) | $805\text{ mW}$ | $256.0\text{ mA}$ (via boost $\eta=85\%$) | $947.1\text{ mW}$ |
 | **Piezoceramic Buzzer (Time-Avg)** | $5.0\text{V}$ | $5\text{ mA}$ | $25\text{ mW}$ | $7.9\text{ mA}$ (via boost $\eta=85\%$) | $29.4\text{ mW}$ |
-| **ESP32-S3 Core & Active Wi-Fi** | $3.3\text{V}$ | $140\text{ mA}$ | $462\text{ mW}$ | $140.0\text{ mA}$ (via LDO) | $518.0\text{ mW}$ |
+| **ESP32-S3 Core & Active Wi-Fi** | $3.3\text{V}$ | $140\text{ mA}$ avg (350mA burst) | $462\text{ mW}$ | $140.0\text{ mA}$ (via LDO) | $518.0\text{ mW}$ |
 | **SSD1306 OLED Display (40% lit)** | $3.3\text{V}$ | $15\text{ mA}$ | $49.5\text{ mW}$ | $15.0\text{ mA}$ (via LDO) | $55.5\text{ mW}$ |
+| **Haptic Motor (1027 ERM, 10% duty)**| $3.3\text{V}$ | $7\text{ mA}$ avg ($70\text{ mA}$ pulse) | $23.1\text{ mW}$ | $7.0\text{ mA}$ (via LDO) | $25.9\text{ mW}$ |
 | **Dual MCP6002 Op-Amp** | $3.3\text{V}$ | $0.6\text{ mA}$ | $2.0\text{ mW}$ | $0.6\text{ mA}$ (via LDO) | $2.2\text{ mW}$ |
 | **MLX90614 Pyrometer (Optional)** | $3.3\text{V}$ | $1.5\text{ mA}$ | $5.0\text{ mW}$ | $1.5\text{ mA}$ (via LDO) | $5.6\text{ mW}$ |
 | **Diagnostic LEDs (1 active)** | $3.3\text{V}$ | $5\text{ mA}$ | $16.5\text{ mW}$ | $5.0\text{ mA}$ (via LDO) | $18.5\text{ mW}$ |
 | **LDO Quiescent & Leakage** | $3.3\text{V}$ | $0.4\text{ mA}$ | $1.3\text{ mW}$ | $0.4\text{ mA}$ (via LDO) | $1.5\text{ mW}$ |
-| **Total Reconciled System Draw** | — | — | — | **$426.4\text{ mA}$ (Nominal)**<br>**$445.0\text{ mA}$ (Peak-Avg)** | **$1.58\text{ W}$ (Nominal)**<br>**$1.65\text{ W}$ (Peak-Avg)** |
+| **Total Reconciled System Draw** | — | — | — | **$433.4\text{ mA}$ (Nominal)**<br>**$455.0\text{ mA}$ (Peak-Avg)** | **$1.60\text{ W}$ (Nominal)**<br>**$1.68\text{ W}$ (Peak-Avg)** |
 
+- **Dynamic Startup & Transmission Transients**:
+  - Wi-Fi TX burst ($350\text{ mA}$) combined with haptic motor inrush ($70\text{ mA}$), buzzer assertion ($20\text{ mA}$), and MQ-2 heater ($161\text{ mA}$) can produce instantaneous peak battery currents exceeding **$680\text{ mA}$**.
+  - A $100\mu\text{F}$ low-ESR decoupling capacitor on the 5.0V rail and $47\mu\text{F}$ on the 3.3V rail are essential to absorb these inductive transients.
 - **Provisional Battery Autonomy Calculation**:
   - Cell Capacity: $1200\text{ mAh}$ nominal ($4.44\text{ Wh}$ @ $3.7\text{V}$).
-  - Usable Capacity Factor (accounting for $3.3\text{V}$ cutoff & cell internal resistance): $85\% \implies 1020\text{ mAh}$ ($3.77\text{ Wh}$).
+  - Usable Capacity Factor (accounting for $3.45\text{V}$ low-battery cutoff & cell ESR): $85\% \implies 1020\text{ mAh}$ ($3.77\text{ Wh}$).
   - **Provisional Continuous Runtime**:
-    $$\text{Runtime} = \frac{1020\text{ mAh}}{445\text{ mA}} \approx 2.29\text{ hours} \approx 2\text{ hours } 18\text{ minutes}$$
-  - *(With 5-second periodic telemetry duty-cycling and OLED sleep mode, estimated battery life extends to $\approx 3.5\text{ hours}$. Runtime remains strictly **PROVISIONAL PENDING PHYSICAL DISCHARGE BENCHMARK**).*
+    $$\text{Runtime} = \frac{1020\text{ mAh}}{455\text{ mA}} \approx 2.24\text{ hours} \approx 2\text{ hours } 14\text{ minutes}$$
+  - *(With 5-second periodic telemetry duty-cycling and OLED sleep mode, estimated battery life extends to $\approx 3.5\text{ hours}$. All runtime figures remain strictly **PROVISIONAL PENDING MEASURED BENCHMARK ON ASSEMBLED HARDWARE**).*
 
 ---
 
@@ -230,19 +254,19 @@ All figures recalculated from electrical fundamentals:
 To resolve discrepancies across documentation, schematics, and codebases, the status of every sensor modality is explicitly defined below:
 
 | Sensor Modality | Part / Sensor Spec | Hardware Interface | Firmware Flag & Pin (`leak_detector.ino`) | Implementation Status | Telemetry Schema Field | Automated Test Status |
-| :--- | :--- | :--- | :--- | :---: | :--- | :--- |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Contact Piezo** | 27mm Brass Piezo Disc | Analog ADC1 (via MCP6002 AFE + LPF) | Active (Always On)<br>S3: GPIO 4 / Classic: GPIO 34 | **IMPLEMENTED (CORE)** | `rms`, `crest_factor`, `leak_status` | Tested (`test_firmware_logic.py`) |
-| **Combustible Gas** | MQ-2 Gas Module | Analog ADC1 (via 12k/10k divider) | `HAS_GAS_SENSOR = 1`<br>S3: GPIO 5 / Classic: GPIO 35 | **IMPLEMENTED (CORE)** | `gas_delta`, `gas_status` | Tested (`test_firmware_logic.py`) |
+| **Combustible Gas** | MQ-2 Gas Module | Analog ADC1 (via 15k/10k divider) | `HAS_GAS_SENSOR = 1`<br>S3: GPIO 5 / Classic: GPIO 35 | **IMPLEMENTED (CORE)** | `gas_delta`, `gas_status` | Tested (`test_firmware_logic.py`) |
 | **Moisture Probe** | Interleaved PCB Probe | Analog ADC1 + Gated Dig Out | `HAS_MOISTURE_SENSOR = 1`<br>Sense: S3 GPIO 6 / Classic GPIO 32<br>Gate: S3 GPIO 10 / Classic GPIO 23 | **IMPLEMENTED (CORE)** | `moisture_detected` (bool) | Tested (`test_firmware_logic.py`) |
 | **Reference Mic** | MAX4466 / MAX9814 | Analog ADC1 (Single-ended) | `USE_REFERENCE_SENSOR = 0`<br>S3: GPIO 7 / Classic: GPIO 39 (VN) | **OPTIONAL (DISABLED)** | Diff RMS (stub) | Tested with flag disabled |
 | **IR Pyrometer** | MLX90614-ESF-BAA | I2C Bus (`0x5A` @ 100kHz) | `HAS_HEAT_SENSOR = 0`<br>SDA: S3 GPIO 8 / Classic GPIO 21<br>SCL: S3 GPIO 9 / Classic GPIO 22 | **OPTIONAL (DISABLED)** | `temperature_c` (defaults 0.0) | Tested disabled state |
 | **UV Radiometer** | GUVA-S12SD | Analog ADC1 (Single-ended) | `HAS_UV_SENSOR = 0`<br>Classic: GPIO 36 (VP) / S3: GPIO 1 | **OPTIONAL (DISABLED)** | `uv_delta` (defaults 0) | Tested disabled state |
-| **Distance / ToF** | VL53L0X | I2C Bus (`0x29` @ 100kHz) | **Not Present in Arduino Sketch**<br>*(ESP-IDF experimental `tinyML_model` only)* | **UNIMPLEMENTED IN V1.1.0** | N/A in Arduino telemetry | N/A (Excluded from V1.1.0) |
+| **Distance / ToF** | VL53L0X | I2C Bus (`0x29` @ 100kHz) | `HAS_DISTANCE_SENSOR = 0`<br>SDA: S3 GPIO 8 / Classic GPIO 21<br>SCL: S3 GPIO 9 / Classic GPIO 22 | **IMPLEMENTED CODE-LEVEL OPTIONAL (CONFIG-FLAGGED / DISABLED)** | `dist` / `distance_mm` (int, defaults -1) | Tested disabled state & UI parsing |
 
 > [!CAUTION]
 > **Safety & Capability Declarations**:
 > 1. **No Automatic Spatial Localization**: A single contact piezoelectric pickup with an RMS threshold measures local vibration amplitude at the point of physical contact. It **does not prove or perform automatic spatial leak localization or beamforming**. Leak localization is an instructional, **trainee-executed comparative multi-point procedure** (the apprentice tests successive fittings and identifies the maximum sustained acoustic differential).
-> 2. **Proximity & UV Alarms Not Active**: Because the VL53L0X is unimplemented in the V1.1.0 Arduino firmware and the GUVA-S12SD is disabled in config (`HAS_UV_SENSOR = 0`), the wearable **does not provide active distance breach or UV burn protection**.
+> 2. **Proximity & UV Alarms Not Active**: Because the VL53L0X and GUVA-S12SD are disabled in config (`HAS_DISTANCE_SENSOR = 0`, `HAS_UV_SENSOR = 0`), the wearable **does not provide active distance breach or UV burn protection** in this default configuration. Proximity and UV alerts remain inactive unless hardware is physically populated and config flags are enabled.
 > 3. **Educational Non-Life-Safety Boundary**: The MQ-2 sensor module is uncalibrated against certified gas standards. **It must never be used to authorize confined-space entry or certify atmospheric clearance**. In industrial environments, confined-space permits legally require certified, multi-gas monitors (O2, LEL, CO, H2S) calibrated by qualified safety personnel.
 
 ---

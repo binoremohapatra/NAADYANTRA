@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime, timezone
+from typing import Optional
 import hashlib
 
 from backend.config import settings
@@ -119,6 +120,15 @@ class Event(Base):
     idempotency_key = Column(String(64), nullable=True, index=True)  # SHA-256 hash for deduplication
 
     session = relationship("Session", back_populates="events")
+
+    @property
+    def distance_mm(self) -> Optional[int]:
+        """Extracted from raw_payload if distance sensor is populated (VL53L0X)."""
+        if self.raw_payload and isinstance(self.raw_payload, dict):
+            d = self.raw_payload.get("dist") or self.raw_payload.get("dist_mm")
+            if d is not None and isinstance(d, (int, float)) and d >= 0:
+                return int(d)
+        return None
 
     __table_args__ = (
         Index("ix_events_device_session_time", "device_id", "session_id", "server_timestamp"),
