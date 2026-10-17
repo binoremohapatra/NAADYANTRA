@@ -428,7 +428,7 @@ class SettingsScreen extends ConsumerWidget {
                         const SahaiLogo(size: 34),
                         const SizedBox(height: 10),
                         Text(
-                          'HAZGUARD FIELD DIAGNOSTICS PLATFORM',
+                          'HAZEGUARD FIELD DIAGNOSTICS PLATFORM',
                           style: AppTypography.mono(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,

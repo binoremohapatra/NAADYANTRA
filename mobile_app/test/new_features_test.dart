@@ -208,8 +208,8 @@ void main() {
         const ProviderScope(child: MaterialApp(home: SplashScreen())),
       );
 
-      // Splash shows the HAZGUARD wordmark and a progress indicator
-      expect(find.text('HAZGUARD'), findsOneWidget);
+      // Splash shows the HAZEGUARD wordmark and a progress indicator
+      expect(find.text('HAZEGUARD'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       // OneShotAnimatedLogo widget should be present
       expect(find.byType(OneShotAnimatedLogo), findsOneWidget);

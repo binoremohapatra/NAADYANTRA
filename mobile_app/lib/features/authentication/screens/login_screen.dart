@@ -176,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SahaiLogo(size: 82),
                               const SizedBox(height: 16),
                               Text(
-                                'HAZGUARD',
+                                'HAZEGUARD',
                                 style: AppTypography.spaceGrotesk(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w800,

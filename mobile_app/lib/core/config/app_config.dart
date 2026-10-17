@@ -36,7 +36,7 @@ class AppConfig {
   static const int maxPageSize = 100;
 
   // App Info
-  static const String appName = 'HazGuard';
+  static const String appName = 'HazeGuard';
   static const String appVersion = '1.0.0';
 
   // Debug Mode

@@ -71,7 +71,7 @@ class OneShotAnimatedLogo extends StatefulWidget {
     this.onCompleted,
     this.holdDuration = const Duration(milliseconds: 400),
     this.animationDuration = const Duration(milliseconds: 2000),
-    this.semanticLabel = 'HazGuard Inward Logo Assembly',
+    this.semanticLabel = 'HazeGuard Inward Logo Assembly',
   });
 
   @override

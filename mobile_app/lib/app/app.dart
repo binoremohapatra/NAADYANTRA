@@ -16,7 +16,7 @@ class App extends ConsumerWidget {
     ref.watch(unauthorizedHandlerProvider);
 
     return MaterialApp.router(
-      title: 'HazGuard',
+      title: 'HazeGuard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

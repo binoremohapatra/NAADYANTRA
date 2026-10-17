@@ -562,7 +562,7 @@ class _DeviceDetailsScreenState extends ConsumerState<DeviceDetailsScreen>
                       icon: Icons.screen_rotation_rounded,
                       title: 'Motion / IMU (6-Axis Gyro & Accel)',
                       statusText: 'UNSUPPORTED / HARDWARE NOT MOUNTED',
-                      description: 'The HazGuard inspection rig utilizes an acoustic contact-piezo transducer on pipe valves. MPU-6050 / IMU is not present on this hardware revision.',
+                      description: 'The HazeGuard inspection rig utilizes an acoustic contact-piezo transducer on pipe valves. MPU-6050 / IMU is not present on this hardware revision.',
                       isSupported: false,
                     ),
                     const Divider(),

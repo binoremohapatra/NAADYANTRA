@@ -172,7 +172,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     _HelpItem(
                       question: 'Why are Heat and UV sensors marked DISABLED?',
                       answer:
-                          'In the standard HazGuard pipeline acoustic inspection rig, thermal and UV '
+                          'In the standard HazeGuard pipeline acoustic inspection rig, thermal and UV '
                           'photodiodes are de-energized in firmware to maximize ADC sampling frequency '
                           'for the ultrasonic transducer. This is expected behavior and not a fault.',
                       badge: 'FIRMWARE RIG',
@@ -271,7 +271,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     _HelpItem(
                       question: 'Hazardous area operations',
                       answer:
-                          'HazGuard experimental hardware is NOT intrinsically safe (IS) rated '
+                          'HazeGuard experimental hardware is NOT intrinsically safe (IS) rated '
                           'for ATEX Zone 0 or Zone 1 combustible atmospheres. It is strictly designated '
                           'for vocational training rigs and cold non-flammable compressed air pipelines.',
                       badge: 'SAFETY RIG',
@@ -395,7 +395,7 @@ class _HelpScreenState extends State<HelpScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('HAZGUARD TECHNICAL SPEC'),
+        title: const Text('HAZEGUARD TECHNICAL SPEC'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
