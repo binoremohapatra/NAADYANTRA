@@ -132,7 +132,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
                 // Subtle, honest status text — no decorative effects
                 Text(
-                  'HAZE GUARD',
+                  'HAZGUARD',
                   style: AppTypography.spaceGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,

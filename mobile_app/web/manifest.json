@@ -5,7 +5,7 @@
     "display": "standalone",
     "background_color": "#F7F5F0",
     "theme_color": "#F07842",
-    "description": "SAHAI - Intelligent Acoustic Leak Detection & Safety Platform.",
+    "description": "HazGuard - Intelligent Acoustic Leak Detection & Safety Platform.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

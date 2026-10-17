@@ -158,7 +158,7 @@ class _HomeTab extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'NAADYANTRA',
+                  'HAZGUARD',
                   style: AppTypography.spaceGrotesk(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,

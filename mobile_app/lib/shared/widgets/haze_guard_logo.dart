@@ -35,7 +35,7 @@ class HazeGuardLogo extends StatelessWidget {
     this.size,
     this.width,
     this.height,
-    this.semanticLabel = 'Haze Guard Logo',
+    this.semanticLabel = 'HazGuard Logo',
   });
 
   @override
