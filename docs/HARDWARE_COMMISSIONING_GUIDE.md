@@ -41,12 +41,12 @@ The firmware [leak_detector.ino](file:///d:/NAADYANTRA/leak_detector.ino) automa
 > A classic **TL072** has a manufacturer-specified minimum supply voltage of **7.0V (±3.5V)** and will not function on a 3.3V single-supply rail. An **LM358** operates at 3V but is not rail-to-rail output ($V_{OH} \approx V_{CC} - 1.5\text{V} = 1.8\text{V}$), leaving only $150\text{mV}$ of positive swing above a 1.65V bias.  
 > **Mandatory Component**: Use a true **3.3V Rail-to-Rail Input/Output (RRIO) Op-Amp** such as the **Microchip MCP6002** (dual op-amp, 1.8V - 6.0V single-supply, 1MHz GBWP, 1pA input bias) or **TI TLV2372 / LMV358A**.
 
-#### Anti-Aliasing Reconciliation (4 kHz ADC Sampling vs. Sensor Bandwidth)
-The firmware samples the acoustic channel at **$f_s = 4000\text{ Hz}$** ($4\text{ kHz}$), yielding a **Nyquist frequency of $f_N = 2000\text{ Hz}$**. Because raw piezoceramic elements and high-gain op-amps maintain bandwidth up to $\approx 30\text{ kHz}$, any unattenuated mechanical noise, motor whine, or ultrasonic hiss above $2\text{ kHz}$ will alias directly into the $0 - 2\text{ kHz}$ detection baseband, corrupting FFT energy bins and false-triggering the RMS leak heuristic.
+#### Anti-Aliasing Sallen-Key Low-Pass Filter Response & Reconciled Trade-Offs
+The firmware samples the acoustic channel at **$f_s = 4000\text{ Hz}$** ($4\text{ kHz}$), setting the **Nyquist folding frequency at $f_N = 2000\text{ Hz}$**. Because raw piezoceramic discs and wideband pre-amplifiers maintain acoustic sensitivity up to $\approx 30\text{ kHz}$, an analog anti-aliasing filter is required prior to the ADC.
 
-To solve this, both operational amplifiers of the dual **MCP6002** package are utilized in a 2-stage topology:
-1. **Stage 1 (U1A)**: AC-coupled non-inverting pre-amplifier ($A_{v1} \approx 23\times$, $27.2\text{ dB}$) biased at $V_\text{BIAS} = 1.65\text{ V}$.
-2. **Stage 2 (U1B)**: Active 2nd-order Sallen-Key Low-Pass Butterworth Filter ($f_c \approx 1.6\text{ kHz}$, roll-off $-40\text{ dB/decade}$).
+In the dual **MCP6002** circuit:
+- **Stage 1 (U1A)**: AC-coupled non-inverting pre-amplifier ($A_{v1} \approx 23\times$, $27.2\text{ dB}$) biased at $V_\text{BIAS} = 1.65\text{ V}$.
+- **Stage 2 (U1B)**: Active 2nd-order Sallen-Key Low-Pass Butterworth Filter ($R_1 = R_2 = 10\text{k}\Omega\ 1\%$, $C_1 = 15\text{nF}$, $C_2 = 6.8\text{nF}$).
 
 ```text
                         +3.3V (Clean Analog Rail)
@@ -79,37 +79,69 @@ Piezo Disc (-) ── GND        [1M]     [ - ]                │
                                                                └─────────────┴── to GND Rail
 ```
 
-- **Filter Cutoff Frequency ($f_c$)**:
-  $$f_c = \frac{1}{2\pi \sqrt{R_1 R_2 C_1 C_2}} = \frac{1}{2\pi \times 10^4 \times \sqrt{15\text{nF} \times 6.8\text{nF}}} \approx 1575\text{ Hz} \approx 1.6\text{ kHz}$$
-- **Quality Factor ($Q$)**: $Q = \frac{\sqrt{C_1 C_2}}{2 C_2} \approx 0.74$ (maximally flat Butterworth passband).
-- **Passband**: $0 - 1500\text{ Hz}$ ($\pm 0.8\text{ dB}$ flatness), covering pipe leak acoustic hiss ($300 - 1500\text{ Hz}$).
-- **Stopband Attenuation**: $-16.5\text{ dB}$ at $4\text{ kHz}$; $-32\text{ dB}$ at $10\text{ kHz}$ ($-40\text{ dB/decade}$).
-- **ADC Protection**: $100\Omega$ series resistor + BAT54S dual Schottky clamp to prevent excursions outside $-0.3\text{V}$ to $+3.6\text{V}$.
-- **Validation Status**: `CIRCUIT SCHEMATIC VERIFIED — PHYSICAL ACOUSTIC TRANSDUCER VALIDATION PENDING`.
+#### Mathematical Transfer Function & Frequency Response Verification
+The 2nd-order Sallen-Key low-pass transfer function is:
+$$H(s) = \frac{\omega_0^2}{s^2 + \frac{\omega_0}{Q}s + \omega_0^2}, \quad \omega_0 = \frac{1}{\sqrt{R_1 R_2 C_1 C_2}}, \quad Q = \frac{\sqrt{R_1 R_2 C_1 C_2}}{C_2(R_1 + R_2)} = \frac{\sqrt{C_1/C_2}}{2}$$
+
+With $R_1 = R_2 = 10\text{k}\Omega$, $C_1 = 15\text{nF}$, $C_2 = 6.8\text{nF}$:
+- **Corner Frequency ($f_0$)**: $f_0 = \frac{1}{2\pi \times 10^4 \times \sqrt{15\times 10^{-9} \times 6.8\times 10^{-9}}} = 1575.9\text{ Hz} \approx 1.58\text{ kHz}$
+- **Damping Factor ($Q$)**: $Q = \frac{\sqrt{15 / 6.8}}{2} = 0.7425$ (near-Butterworth maximally flat passband, $Q_\text{Butterworth} = 0.7071$)
+- **Magnitude Equation**:
+  $$|H(j f)|_{\text{dB}} = -10 \log_{10} \left[ \left(1 - \left(\frac{f}{f_0}\right)^2\right)^2 + \frac{1}{Q^2}\left(\frac{f}{f_0}\right)^2 \right]$$
+
+#### Calculated Filter Response Spectrum
+| Frequency ($f$) | Ratio ($f / f_0$) | Attenuation (dB) | Signal Integrity & Anti-Aliasing Interpretation |
+| :---: | :---: | :---: | :--- |
+| **$300\text{ Hz}$** | $0.190$ | **$-0.01\text{ dB}$** | Flat passband; lower limit of pipe leak acoustic hiss. |
+| **$500\text{ Hz}$** | $0.317$ | **$-0.04\text{ dB}$** | Flat passband; negligible attenuation. |
+| **$1000\text{ Hz}$** | $0.635$ | **$-0.36\text{ dB}$** | Flat passband; core fluid turbulence frequency band. |
+| **$1150\text{ Hz}$** | $0.730$ | **$-0.75\text{ dB}$** | Upper limit of $\pm 0.8\text{ dB}$ flatness region. |
+| **$1500\text{ Hz}$** | $0.952$ | **$-2.18\text{ dB}$** | Transition knee (attenuated by $\approx 2.2\text{ dB}$, NOT flat). |
+| **$1576\text{ Hz}$** ($f_0$) | $1.000$ | **$-2.87\text{ dB}$** | Filter cutoff frequency ($-3\text{ dB}$ nominal). |
+| **$2000\text{ Hz}$** ($f_N$) | $1.269$ | **$-5.18\text{ dB}$** | **Nyquist folding frequency**: modest attenuation of $-5.2\text{ dB}$. |
+| **$3000\text{ Hz}$** | $1.904$ | **$-11.45\text{ dB}$** | Out-of-band noise aliasing into $1000\text{ Hz}$ is suppressed by $\approx 11.5\text{ dB}$. |
+| **$4000\text{ Hz}$** ($f_s$) | $2.538$ | **$-16.16\text{ dB}$** | Sampling frequency rejection. |
+| **$8000\text{ Hz}$** | $5.077$ | **$-28.21\text{ dB}$** | Ultrasonic suppression. |
+| **$16000\text{ Hz}$** | $10.15$ | **$-40.23\text{ dB}$** | High-frequency electromagnetic / switching rejection. |
+
+#### Architectural Filter Trade-Off & Future Roadmap
+- **Design Trade-Off**: A 2nd-order single op-amp filter provides $-5.2\text{ dB}$ attenuation at $f_N = 2000\text{ Hz}$. This is sufficient to damp ambient acoustics, but acoustic noise between $2.0\text{ kHz}$ and $3.0\text{ kHz}$ will experience partial aliasing back into $1.0 - 2.0\text{ kHz}$ with $5 - 11\text{ dB}$ attenuation.
+- **Physical Verification Requirement**: Acoustic frequency response and alias rejection must be physically measured with an arbitrary waveform generator and swept sine input before finalizing PCBA tape-out.
+- **Revision 2.0 Enhancement Path**: If physical bench testing reveals excessive in-band aliasing in high-noise workshops, the firmware sampling rate will be doubled to $f_s = 8000\text{ Hz}$ ($f_N = 4000\text{ Hz}$, where analog rejection is $-16.2\text{ dB}$) with a software 4th-order IIR decimation filter to $4\text{ kHz}$.
 
 ---
 
-### 2.2 MQ Combustible Gas Sensor Integration & Precision ADC Divider
+### 2.2 MQ Combustible Gas Sensor Integration & ADC Calibration
 
 > [!IMPORTANT]
 > **Conditioning & Measurement Honesty**:
 > 1. **Initial Heater Conditioning**: Manufacturer documentation (Winsen MQ-2 / MQ-135) specifies a continuous **48-hour burn-in period** at rated heater voltage ($V_H = 5.0\text{V} \pm 0.1\text{V}$) for chemical stabilization of the $\text{SnO}_2$ sensing layer.
 > 2. **Session Warm-Up**: During bench deployment, a **2 to 5 minute thermal warm-up** is required after power-on before recording baseline resistance ($R_0$). The firmware enforces a minimum 60-second stabilization guard (`GAS_WARMUP_S = 60`).
-> 3. **Measurement Status**: Because certified span-gas chamber calibration has not yet been conducted on the physical rig, gas readings must be treated as **indicative relative sensor delta ($\Delta\text{ADC}$) and resistance ratio ($R_s/R_0$)**, NOT certified absolute ppm or %LEL.
+> 3. **Indicative Status**: Gas readings are treated strictly as **indicative relative sensor delta ($\Delta\text{ADC}$) and resistance ratio ($R_s/R_0$)**, NOT certified absolute ppm or %LEL.
 
-#### Verified ADC Interface Divider Calculation
-The MQ-2 sensor breakout module is powered from the regulated $+5.0\text{V}$ rail ($V_{CC} = 5.0\text{V} \pm 5\%$, maximum $V_{in,\max} = 5.25\text{V}$). Under extreme gas saturation, the module analog output $A_0$ approaches $V_{CC}$.
-- **ESP32 ADC Linear Range**: With $11\text{ dB}$ attenuation (`ADC_ATTEN_DB_11` on Classic ESP32), the linear measurable range is $\approx 100\text{ mV}$ to $2450\text{ mV}$ ($2.45\text{V}$). On ESP32-S3 with $12\text{ dB}$ attenuation, it is $\approx 100\text{ mV}$ to $3100\text{ mV}$.
-- **Absolute Maximum GPIO Rating**: $V_{DD} + 0.3\text{V} = 3.6\text{V}$. Direct exposure to $5.0\text{V} - 5.25\text{V}$ will destroy the MCU input.
-- **Divider Selection ($12\text{k}\Omega / 10\text{k}\Omega\ 1\%$)**:
-  $$K = \frac{R_2}{R_1 + R_2} = \frac{10\text{k}\Omega}{12\text{k}\Omega + 10\text{k}\Omega} = \frac{10}{22} \approx 0.4545$$
-  - At $V_{in} = 5.00\text{V} \implies V_\text{ADC} = 2.273\text{V}$ (inside linear range).
-  - At $V_{in} = 5.25\text{V} \implies V_\text{ADC} = 2.386\text{V}$ (below $2.45\text{V}$ saturation threshold).
-  - Absolute maximum $3.6\text{V}$ GPIO limit would require $V_{in} > 7.92\text{V}$, providing $> 2.6\text{V}$ overvoltage headroom.
-  - Output impedance: $R_{eq} = 12\text{k}\Omega \parallel 10\text{k}\Omega \approx 5.45\text{k}\Omega$ (well below ESP32 ADC source impedance recommendation of $< 10\text{k}\Omega$).
+#### ADC Calibration & Interface Verification (ESP32-S3 vs. Classic ESP32)
+Per [Espressif's Official ADC Documentation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/adc/index.html) and [ADC Calibration Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/adc/adc_calibration.html):
+- **Classic ESP32 ADC1**: With $11\text{ dB}$ attenuation (`ADC_ATTEN_DB_11`), the recommended linear range is **$150\text{ mV}$ to $2450\text{ mV}$ ($2.45\text{V}$)**. Above $2.45\text{V}$, saturation non-linearity is severe. Factory calibration is read via `esp_adc_cal_characterize()` using eFuse Two Point or Vref values.
+- **ESP32-S3 ADC1**: Redesigned SAR ADC with Curve Fitting calibration (`adc_cali_create_scheme_curve_fitting()`). With $12\text{ dB}$ attenuation (`ADC_ATTEN_DB_12`), the recommended calibrated range is **$150\text{ mV}$ to $3100\text{ mV}$ ($3.10\text{V}$)**.
+- **Absolute Maximum GPIO Rating**: $V_{DD} + 0.3\text{V} = 3.6\text{V}$. Direct exposure to $5.0\text{V}$ will permanently damage the silicon.
+
+#### Verified Resistor & Voltage Margin Calculation ($12\text{k}\Omega / 10\text{k}\Omega\ 1\%$)
+- MQ-2 Supply Rail ($V_{CC}$): $5.0\text{V} \pm 5\%$ tolerance $\implies V_{in,\max} = 5.25\text{V}$.
+- Worst-Case Resistor Tolerance ($\pm 1\%$):
+  - $R_1 (\text{top}) = 12\text{k}\Omega \times 0.99 = 11.88\text{k}\Omega$
+  - $R_2 (\text{bottom}) = 10\text{k}\Omega \times 1.01 = 10.10\text{k}\Omega$
+  - Worst-Case Ratio:
+    $$K_{\max} = \frac{10.10\text{k}\Omega}{11.88\text{k}\Omega + 10.10\text{k}\Omega} = \frac{10.10}{21.98} \approx 0.4595$$
+- **Maximum ADC Input Voltage**:
+  $$V_{\text{ADC},\max} = 5.25\text{V} \times 0.4595 = 2.412\text{V}$$
+- **Verification of Margins**:
+  1. Margin to Classic ESP32 Linear Limit ($2.450\text{V}$): **$+38\text{ mV}$ (1.6% margin under worst-case tolerance)**.
+  2. Margin to ESP32-S3 Linear Limit ($3.100\text{V}$): **$+688\text{ mV}$ (28.5% margin)**.
+  3. Margin to Absolute Maximum Pin Rating ($3.600\text{V}$): **$+1.188\text{V}$ (49.2% margin)**.
+- **Implementation Rule**: Firmware voltage conversion must use ESP-IDF eFuse calibration APIs rather than naive straight-line math (`raw * 3.3 / 4095.0`).
 
 ```text
-MQ-2 Analog Out (0 - 5.25V) ───[12k 1%]───┬───► PIN_GAS (ADC1, 0 - 2.39V Max)
+MQ-2 Analog Out (0 - 5.25V) ───[12k 1%]───┬───► PIN_GAS (ADC1, 0 - 2.41V Max)
                                           │
                                         [10k 1%] ──┬── [10nF Ceramic] to GND
                                           │        │
@@ -120,48 +152,98 @@ MQ-2 Analog Out (0 - 5.25V) ───[12k 1%]───┬───► PIN_GAS (A
 
 ---
 
-### 2.3 Power System Architecture & Energy Budget
+### 2.3 Power System Architecture, TP4056 Topology & Reconciled Energy Budget
 
-To ensure physical electrical integrity and avoid ambiguity between portable wearable usage and stationary lab benches, the complete dual power topology is established:
+#### Corrected Hardware Power Topology Diagram
+The TP4056 board with integrated protection (DW01A + 8205A) separates battery charging from load draw. The MT3608 is an **asynchronous (non-synchronous) step-up boost converter** with an external Schottky rectifier diode:
 
 ```text
-[CONFIGURATION A: WEARABLE / FIELD OPERATION]
-1S Li-Po Battery (3.7V Nom, 1200mAh)
-    │
-  [PCM Protection Circuit: DW01A + 8205A (Over-charge, Over-discharge, Over-current)]
-    ├──► TP4056 USB-C Charger (5V USB in, 4.2V CC/CV 1A charge rate)
-    │
-    ├──► [MT3608 Synchronous Boost Converter (85% eff)] ──► +5.0V Regulated Rail
-    │                                                        ├── MQ-2 Heater (RH ~31R, ~160-180mA, 900mW)
-    │                                                        └── Piezoceramic Audio Buzzer (~20mA peak)
-    │
-    └──► [AP2112K / ME6211 3.3V LDO Regulator] ────────────► +3.3V Regulated Rail
-                                                             ├── ESP32 / ESP32-S3 MCU (~120-160mA avg, 350mA Wi-Fi burst)
-                                                             ├── Dual MCP6002 Op-Amp (< 1mA)
-                                                             ├── MLX90614 Pyrometer (1.5mA)
-                                                             └── SSD1306 OLED (15mA)
+[EXTERNAL 5V USB SOURCE]
+       │
+   (USB-C Port)
+       │
+     [IN+] ─── TP4056 Li-Ion Charger IC ─── [B+] ──────┐
+     [IN-] ─── (1000mA CC/CV Charging)  ─── [B-] ──┐   │
+                                                   │   │
+                                           [1S Li-Po Cell 3.7V 1200mAh]
+                                           (Bare Lithium Polymer Battery)
+                                                   │   │
+     [OUT+] ◄──────────────────────────────────────┴───┘ (Positive Terminal)
+     [OUT-] ◄── [8205A Dual N-MOSFET] ◄── [DW01A Protection IC (Overcharge/Discharge/Overcurrent)]
+       │
+       ▼
+[MAIN SPST POWER SWITCH]
+       │
+       ├─────────────────────────────────────────────┐
+       │ (Battery Rail: 3.0V - 4.2V, 3.7V Nom)       │
+       ▼                                             ▼
+[MT3608 Asynchronous Step-Up Converter]       [AP2112K / ME6211 3.3V LDO]
+(External SS34 Schottky, ~85% Efficiency)    (Low-Dropout Linear, ~89.2% Eff)
+       │                                             │
+       ▼                                             ▼
+  +5.0V Regulated Rail                          +3.3V Regulated Rail
+  ├── MQ-2 Heater (RH ~31Ω, ~161mA, 805mW)     ├── ESP32-S3 MCU (~140mA avg with Wi-Fi)
+  └── Piezoceramic Buzzer (~5mA time-avg)      ├── Dual MCP6002 Op-Amp (0.6mA)
+                                               ├── SSD1306 OLED (15mA)
+                                               ├── MLX90614 Pyrometer (1.5mA, if fitted)
+                                               └── System LEDs (5mA)
 
-[CONFIGURATION B: BENCH / TRAINING LAB BENCHTOP]
-External DC Power Supply (9V - 12V DC, 2A Wall Adapter)
-    │
-  [MP1584 / LM2596 Step-Down Buck Converter (90% eff)] ──► +5.0V Regulated Rail
-                                                            ├── Supplies MQ-2 Heater Directly
-                                                            └── Feeds ESP32 Onboard 3.3V LDO for Logic Rail
-*(Note: A 12V-to-5V buck converter is for stationary benchtop testing only; it must never be connected directly to a Li-ion cell).*
+[BENCHTOP LAB POWER ALTERNATIVE (STATIONARY)]
+External 9V - 12V DC Wall Adapter ──► [MP1584 Buck Converter] ──► +5.0V Rail Directly
+*(Never connect a 12V buck regulator directly to a Li-ion cell; it is strictly for bench testing).*
 ```
 
-#### Power Demand & Provisional Autonomy Calculation
-| Subsystem Rail | Voltage | Average Current | Power Demand | Battery Draw @ 3.7V Nom |
-| :--- | :---: | :---: | :---: | :---: |
-| **MQ-2 Heater (Continuous)** | $5.0\text{V}$ | $170\text{ mA}$ | $850\text{ mW}$ | $270\text{ mA}$ (via boost $\eta=85\%$) |
-| **ESP32 Core & Wi-Fi Active** | $3.3\text{V}$ | $140\text{ mA}$ | $462\text{ mW}$ | $140\text{ mA}$ (via LDO $\eta=89\%$) |
-| **Sensors, AFE & OLED Display** | $3.3\text{V}$ | $20\text{ mA}$ | $66\text{ mW}$ | $20\text{ mA}$ (via LDO) |
-| **Alert Transducers (Intermittent)** | $5.0\text{V}$ / $3.3\text{V}$ | $\approx 25\text{ mA}$ | $\approx 100\text{ mW}$ | $\approx 15\text{ mA}$ (time-averaged) |
-| **Total System Draw** | — | — | **$\approx 1.48\text{ W}$** | **$\approx 445\text{ mA}$** |
+#### Critical TP4056 Simultaneous Charge-and-Load Limitation
+> [!WARNING]
+> **No Dynamic Power-Path Management in TP4056**:  
+> The basic TP4056 module does not contain an ideal diode OR-ing or power-path circuit. If the device is operated while USB is plugged in, the system load current ($\approx 445\text{ mA}$) is drawn directly from the charger output in parallel with the battery:
+> 1. The effective charging current into the cell is reduced ($1000\text{ mA} - 445\text{ mA} \approx 555\text{ mA}$).
+> 2. Because the system load continuously draws current, the TP4056 may never detect the $C/10$ charge termination threshold ($100\text{ mA}$), preventing the charge cycle from terminating properly.
+> 3. **Operational Directive**: The prototype wearable must be switched **OFF** via the SPST power switch during battery charging. For Revision 2.0, a dedicated power-path IC (e.g., TI BQ24075 or Microchip MCP73871) will be integrated.
 
-- **Provisional Battery Autonomy**:
-  $$\text{Run Time} = \frac{1200\text{ mAh}}{445\text{ mA}} \times 0.85\ (\text{usable discharge factor}) \approx 2.3\text{ hours continuous operation}$$
-  *(With 5-second telemetry reporting intervals and display timeout, estimated autonomy extends to $\approx 3.5 - 4.0\text{ hours}$. Autonomy remains **provisional pending physical discharge logging on assembled prototype**).*
+#### Reconciled Component Energy Budget & Autonomy
+All figures recalculated from electrical fundamentals:
+
+| Subsystem Component | Operating Rail | Operating Current | Electrical Power | Battery Current @ 3.7V Nom | Power from Battery |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **MQ-2 Gas Heater (Continuous)** | $5.0\text{V}$ | $161\text{ mA}$ ($31\Omega$) | $805\text{ mW}$ | $256.0\text{ mA}$ (via boost $\eta=85\%$) | $947.1\text{ mW}$ |
+| **Piezoceramic Buzzer (Time-Avg)** | $5.0\text{V}$ | $5\text{ mA}$ | $25\text{ mW}$ | $7.9\text{ mA}$ (via boost $\eta=85\%$) | $29.4\text{ mW}$ |
+| **ESP32-S3 Core & Active Wi-Fi** | $3.3\text{V}$ | $140\text{ mA}$ | $462\text{ mW}$ | $140.0\text{ mA}$ (via LDO) | $518.0\text{ mW}$ |
+| **SSD1306 OLED Display (40% lit)** | $3.3\text{V}$ | $15\text{ mA}$ | $49.5\text{ mW}$ | $15.0\text{ mA}$ (via LDO) | $55.5\text{ mW}$ |
+| **Dual MCP6002 Op-Amp** | $3.3\text{V}$ | $0.6\text{ mA}$ | $2.0\text{ mW}$ | $0.6\text{ mA}$ (via LDO) | $2.2\text{ mW}$ |
+| **MLX90614 Pyrometer (Optional)** | $3.3\text{V}$ | $1.5\text{ mA}$ | $5.0\text{ mW}$ | $1.5\text{ mA}$ (via LDO) | $5.6\text{ mW}$ |
+| **Diagnostic LEDs (1 active)** | $3.3\text{V}$ | $5\text{ mA}$ | $16.5\text{ mW}$ | $5.0\text{ mA}$ (via LDO) | $18.5\text{ mW}$ |
+| **LDO Quiescent & Leakage** | $3.3\text{V}$ | $0.4\text{ mA}$ | $1.3\text{ mW}$ | $0.4\text{ mA}$ (via LDO) | $1.5\text{ mW}$ |
+| **Total Reconciled System Draw** | — | — | — | **$426.4\text{ mA}$ (Nominal)**<br>**$445.0\text{ mA}$ (Peak-Avg)** | **$1.58\text{ W}$ (Nominal)**<br>**$1.65\text{ W}$ (Peak-Avg)** |
+
+- **Provisional Battery Autonomy Calculation**:
+  - Cell Capacity: $1200\text{ mAh}$ nominal ($4.44\text{ Wh}$ @ $3.7\text{V}$).
+  - Usable Capacity Factor (accounting for $3.3\text{V}$ cutoff & cell internal resistance): $85\% \implies 1020\text{ mAh}$ ($3.77\text{ Wh}$).
+  - **Provisional Continuous Runtime**:
+    $$\text{Runtime} = \frac{1020\text{ mAh}}{445\text{ mA}} \approx 2.29\text{ hours} \approx 2\text{ hours } 18\text{ minutes}$$
+  - *(With 5-second periodic telemetry duty-cycling and OLED sleep mode, estimated battery life extends to $\approx 3.5\text{ hours}$. Runtime remains strictly **PROVISIONAL PENDING PHYSICAL DISCHARGE BENCHMARK**).*
+
+---
+
+### 2.4 Sensor Modality Inventory & Firmware Implementation Matrix
+
+To resolve discrepancies across documentation, schematics, and codebases, the status of every sensor modality is explicitly defined below:
+
+| Sensor Modality | Part / Sensor Spec | Hardware Interface | Firmware Flag & Pin (`leak_detector.ino`) | Implementation Status | Telemetry Schema Field | Automated Test Status |
+| :--- | :--- | :--- | :--- | :---: | :--- | :--- |
+| **Contact Piezo** | 27mm Brass Piezo Disc | Analog ADC1 (via MCP6002 AFE + LPF) | Active (Always On)<br>S3: GPIO 4 / Classic: GPIO 34 | **IMPLEMENTED (CORE)** | `rms`, `crest_factor`, `leak_status` | Tested (`test_firmware_logic.py`) |
+| **Combustible Gas** | MQ-2 Gas Module | Analog ADC1 (via 12k/10k divider) | `HAS_GAS_SENSOR = 1`<br>S3: GPIO 5 / Classic: GPIO 35 | **IMPLEMENTED (CORE)** | `gas_delta`, `gas_status` | Tested (`test_firmware_logic.py`) |
+| **Moisture Probe** | Interleaved PCB Probe | Analog ADC1 + Gated Dig Out | `HAS_MOISTURE_SENSOR = 1`<br>Sense: S3 GPIO 6 / Classic GPIO 32<br>Gate: S3 GPIO 10 / Classic GPIO 23 | **IMPLEMENTED (CORE)** | `moisture_detected` (bool) | Tested (`test_firmware_logic.py`) |
+| **Reference Mic** | MAX4466 / MAX9814 | Analog ADC1 (Single-ended) | `USE_REFERENCE_SENSOR = 0`<br>S3: GPIO 7 / Classic: GPIO 39 (VN) | **OPTIONAL (DISABLED)** | Diff RMS (stub) | Tested with flag disabled |
+| **IR Pyrometer** | MLX90614-ESF-BAA | I2C Bus (`0x5A` @ 100kHz) | `HAS_HEAT_SENSOR = 0`<br>SDA: S3 GPIO 8 / Classic GPIO 21<br>SCL: S3 GPIO 9 / Classic GPIO 22 | **OPTIONAL (DISABLED)** | `temperature_c` (defaults 0.0) | Tested disabled state |
+| **UV Radiometer** | GUVA-S12SD | Analog ADC1 (Single-ended) | `HAS_UV_SENSOR = 0`<br>Classic: GPIO 36 (VP) / S3: GPIO 1 | **OPTIONAL (DISABLED)** | `uv_delta` (defaults 0) | Tested disabled state |
+| **Distance / ToF** | VL53L0X | I2C Bus (`0x29` @ 100kHz) | **Not Present in Arduino Sketch**<br>*(ESP-IDF experimental `tinyML_model` only)* | **UNIMPLEMENTED IN V1.1.0** | N/A in Arduino telemetry | N/A (Excluded from V1.1.0) |
+
+> [!CAUTION]
+> **Safety & Capability Declarations**:
+> 1. **No Automatic Spatial Localization**: A single contact piezoelectric pickup with an RMS threshold measures local vibration amplitude at the point of physical contact. It **does not prove or perform automatic spatial leak localization or beamforming**. Leak localization is an instructional, **trainee-executed comparative multi-point procedure** (the apprentice tests successive fittings and identifies the maximum sustained acoustic differential).
+> 2. **Proximity & UV Alarms Not Active**: Because the VL53L0X is unimplemented in the V1.1.0 Arduino firmware and the GUVA-S12SD is disabled in config (`HAS_UV_SENSOR = 0`), the wearable **does not provide active distance breach or UV burn protection**.
+> 3. **Educational Non-Life-Safety Boundary**: The MQ-2 sensor module is uncalibrated against certified gas standards. **It must never be used to authorize confined-space entry or certify atmospheric clearance**. In industrial environments, confined-space permits legally require certified, multi-gas monitors (O2, LEL, CO, H2S) calibrated by qualified safety personnel.
 
 ---
 

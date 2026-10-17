@@ -45,13 +45,14 @@
 - **Procedure**: Wearable worn for 10 minutes in typical vocational workshop during active instruction.
 - **Acceptance Criteria**: Zero false-positive `DANGER` alerts. RMS remains below $1.5\times$ baseline ratio (`CUE_RMS_START_RATIO`).
 
-### Protocol 2: Pressurized Leak Detection on Safe Bench Manifold
-- **Objective**: Localize pressurized gas escape from a safe, low-pressure test manifold.
+### Protocol 2: Pressurized Leak Detection on Safe Bench Manifold (Comparative Multi-Point Procedure)
+- **Objective**: Demonstrate trainee-executed comparative leak localization on pressurized gas escape from a safe, low-pressure test manifold.
+- **Physical Boundary**: A single contact piezo transducer measures vibration intensity at a single contact point. It does not perform automatic spatial beamforming or coordinate localization. Localization is achieved by the trainee sequentially probing test points along the pipe run and identifying the joint with the maximum acoustic RMS differential.
 - **Apparatus**: Compressed air manifold operating at regulated low pressure ($\le 1.5\text{ to } 2.0\text{ bar}$) fitted with an ASME-coded pressure relief valve, burst protection shield, and a precision $0.5\text{ mm}$ pinhole orifice.
 - **Safety Equipment**: Personal eye protection and hearing protection required.
-- **Procedure**: Operator couples piezo probe to pipe surface at distances of $10\text{ cm}$, $30\text{ cm}$, and $100\text{ cm}$ from the orifice.
+- **Procedure**: Operator couples piezo probe to pipe surface at successive test points ($10\text{ cm}$, $30\text{ cm}$, and $100\text{ cm}$ from the orifice) to compare signal levels.
 - **Acceptance Criteria**:
-  - RMS differential exceeds $3.0\times$ baseline (`FALLBACK_LEAK_RATIO`) within $1.0\text{ s}$ of acoustic contact.
+  - RMS differential exceeds $3.0\times$ baseline (`FALLBACK_LEAK_RATIO`) within $1.0\text{ s}$ of acoustic contact at the leaking joint.
   - Leak confirmed across at least 2 consecutive analysis windows (`LEAK_CONFIRM_WINDOWS = 2`).
   - Alert transitions to `DANGER`, activating audio cue and tactile vibration.
 
