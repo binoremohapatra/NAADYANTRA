@@ -18,10 +18,10 @@ class AppConfig {
   static const String localApiBaseUrl =
       'http://10.0.2.2:8000'; // override for physical device
 
-  // Connection Timeouts
-  static const Duration connectTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
-  static const Duration sendTimeout = Duration(seconds: 30);
+  // Connection Timeouts (45s for cloud spin-up resilience)
+  static const Duration connectTimeout = Duration(seconds: 45);
+  static const Duration receiveTimeout = Duration(seconds: 45);
+  static const Duration sendTimeout = Duration(seconds: 45);
 
   // Polling Intervals
   static const Duration liveInspectionPollInterval = Duration(seconds: 5);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/widgets/industrial_button.dart';
@@ -42,6 +43,87 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted && ref.read(authStateProvider).isAuthenticated) {
       context.go('/');
     }
+  }
+
+  void _showServerConfigDialog(BuildContext context, String currentUrl) {
+    final urlController = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E2022)
+            : AppColors.pureWhite,
+        title: Text(
+          'BACKEND SERVER HOST',
+          style: AppTypography.spaceGrotesk(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+            color: AppColors.burntOrange,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Target API server for telemetry and authentication:',
+              style: AppTypography.inter(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: urlController,
+              style: AppTypography.mono(fontSize: 12),
+              decoration: const InputDecoration(
+                labelText: 'Server URL',
+                hintText: 'https://naadyantra.onrender.com',
+                prefixIcon: Icon(Icons.link_rounded),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ActionChip(
+                  label: const Text('Cloud (Render)'),
+                  onPressed: () {
+                    urlController.text = AppConfig.productionApiBaseUrl;
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Emulator (10.0.2.2)'),
+                  onPressed: () {
+                    urlController.text = AppConfig.emulatorApiBaseUrl;
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.burntOrange,
+            ),
+            onPressed: () async {
+              final newUrl = urlController.text.trim();
+              if (newUrl.isNotEmpty) {
+                await ref.read(backendUrlProvider.notifier).setUrl(newUrl);
+                if (dialogCtx.mounted) {
+                  Navigator.of(dialogCtx).pop();
+                }
+              }
+            },
+            child: const Text('APPLY'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -317,7 +399,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                         ),
-                                        hintText: 'e.g. operator or trainer',
+                                        hintText: 'e.g. admin or operator',
                                         hintStyle: TextStyle(
                                           color: isDark
                                               ? AppColors.subtleGray
@@ -565,7 +647,55 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 14),
+
+                        // Active Server Target Indicator
+                        Center(
+                          child: InkWell(
+                            onTap: () => _showServerConfigDialog(
+                              context,
+                              ref.watch(backendUrlProvider).valueOrNull ??
+                                  AppConfig.defaultApiBaseUrl,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.dns_rounded,
+                                    size: 13,
+                                    color: isDark
+                                        ? AppColors.softSand
+                                        : AppColors.warmGraphite,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'TARGET: ${ref.watch(backendUrlProvider).valueOrNull ?? AppConfig.defaultApiBaseUrl}',
+                                    style: AppTypography.mono(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? AppColors.softSand
+                                          : AppColors.warmGraphite,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.edit_rounded,
+                                    size: 12,
+                                    color: AppColors.burntOrange,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
                         // Industrial Compliance Badge
                         StaggeredEntrance(
