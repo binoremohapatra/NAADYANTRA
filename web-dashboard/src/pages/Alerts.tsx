@@ -1,22 +1,60 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { useDemo } from '../context/DemoContext';
 import type { PaginatedResponse, DashboardAlert } from '../types';
 
-function Alerts() {
+export default function Alerts() {
+  const { isDemoMode, demoData } = useDemo();
+
   const [alerts, setAlerts] = useState<PaginatedResponse<DashboardAlert> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
   const [filterType, setFilterType] = useState<string>('');
   const [filterDevice, setFilterDevice] = useState<string>('');
 
-  useEffect(() => {
-    loadAlerts();
-  }, [page, filterType, filterDevice]);
-
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     try {
       setIsLoading(true);
+      setError('');
+
+      if (isDemoMode) {
+        let items: DashboardAlert[] = demoData.events
+          .filter((e) => e.alert === 'DANGER' || e.alert === 'CAUTION')
+          .map((e) => ({
+            id: e.id,
+            device_id: e.device_id,
+            trainee_id: e.trainee_id,
+            timestamp: e.server_timestamp,
+            alert: e.alert || 'CAUTION',
+            cause: e.cause || 'acoustic_elevation',
+            details: {
+              event_name: e.event_name || 'hazard_alert',
+              model_label: e.model_label || 'rms_threshold',
+              leak_probability: e.leak_probability ?? undefined,
+              rms: e.rms ?? undefined,
+              gas_delta: e.gas_delta ?? undefined,
+            },
+          }));
+
+        if (filterType) {
+          items = items.filter((a) => a.alert === filterType);
+        }
+        if (filterDevice) {
+          items = items.filter((a) => a.device_id.toLowerCase().includes(filterDevice.toLowerCase()));
+        }
+
+        setAlerts({
+          total: items.length,
+          page,
+          page_size: 50,
+          items,
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const params: any = { page, page_size: 50 };
       if (filterType) params.alert_type = filterType;
       if (filterDevice) params.device_id = filterDevice;
@@ -27,7 +65,11 @@ function Alerts() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isDemoMode, demoData.events, page, filterType, filterDevice]);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
 
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
@@ -49,15 +91,20 @@ function Alerts() {
       <div className="hg-page-header">
         <div>
           <h1 className="hg-page-title">Hazard Alerts</h1>
-          <p className="hg-page-subtitle">Recorded hazard &amp; diagnostic events from all devices</p>
+          <p className="hg-page-subtitle">Recorded threshold breaches &amp; safety-critical diagnostic events</p>
         </div>
-        <button className="hg-btn hg-btn-secondary" onClick={loadAlerts}>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to="/diagnostics" className="hg-btn hg-btn-primary" style={{ textDecoration: 'none' }}>
+            Open Diagnostic Workspace →
+          </Link>
+          <button className="hg-btn hg-btn-secondary" onClick={loadAlerts}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -65,15 +112,18 @@ function Alerts() {
         <div className="hg-filters" style={{ margin: 0 }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: '100%' }}>
             <div style={{ flex: '0 0 180px' }}>
-              <label className="hg-label">Severity</label>
+              <label className="hg-label">Severity Level</label>
               <select
                 className="hg-input"
                 value={filterType}
-                onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setFilterType(e.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="">All severities</option>
-                <option value="DANGER">DANGER</option>
-                <option value="CAUTION">CAUTION</option>
+                <option value="DANGER">Critical (DANGER)</option>
+                <option value="CAUTION">Warning (CAUTION)</option>
               </select>
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -83,7 +133,10 @@ function Alerts() {
                 className="hg-input"
                 placeholder="Filter by device ID…"
                 value={filterDevice}
-                onChange={(e) => { setFilterDevice(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setFilterDevice(e.target.value);
+                  setPage(1);
+                }}
               />
             </div>
           </div>
@@ -128,8 +181,9 @@ function Alerts() {
                   <th>Trainee ID</th>
                   <th>Severity</th>
                   <th>Cause</th>
-                  <th>Event</th>
-                  <th>Details</th>
+                  <th>Diagnostic Event</th>
+                  <th>Key Telemetry Details</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,73 +195,55 @@ function Alerts() {
                       </span>
                     </td>
                     <td>
-                      <code className="hg-code">{alert.device_id}</code>
+                      <span className="hg-code">{alert.device_id}</span>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: 'var(--color-warm-graphite)' }}>
-                        {alert.trainee_id || '—'}
-                      </span>
+                      <strong>{alert.trainee_id}</strong>
                     </td>
                     <td>{alertBadge(alert.alert)}</td>
-                    <td style={{ fontSize: 12 }}>{alert.cause || '—'}</td>
-                    <td style={{ fontSize: 12 }}>{alert.details.event_name || '—'}</td>
                     <td>
-                      <div style={{ fontSize: 11, color: 'var(--color-warm-graphite)', fontFamily: 'var(--font-mono)', lineHeight: 1.8 }}>
-                        {alert.details.leak_probability != null && (
-                          <div>Leak P: <strong style={{ color: 'var(--color-carbon)' }}>
-                            {(alert.details.leak_probability * 100).toFixed(1)}%
-                          </strong></div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500 }}>
+                        {alert.cause || '—'}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--color-carbon)' }}>
+                      {alert.details?.event_name || '—'}
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-warm-graphite)' }}>
+                        {alert.details?.rms != null && (
+                          <span style={{ marginRight: 8 }}>
+                            RMS: <strong>{alert.details.rms.toFixed(1)}</strong>
+                          </span>
                         )}
-                        {alert.details.rms != null && (
-                          <div>RMS: <strong style={{ color: 'var(--color-carbon)' }}>
-                            {alert.details.rms.toFixed(2)}
-                          </strong></div>
+                        {alert.details?.leak_probability != null && (
+                          <span style={{ marginRight: 8 }}>
+                            Leak P: <strong>{(alert.details.leak_probability * 100).toFixed(0)}%</strong>
+                          </span>
                         )}
-                        {alert.details.gas_delta != null && (
-                          <div>Gas Δ: <strong style={{ color: 'var(--color-carbon)' }}>
-                            {alert.details.gas_delta.toFixed(1)}
-                          </strong></div>
+                        {alert.details?.gas_delta != null && (
+                          <span>
+                            Gas Δ: <strong>+{alert.details.gas_delta}</strong>
+                          </span>
                         )}
                       </div>
+                    </td>
+                    <td>
+                      <Link
+                        to="/diagnostics"
+                        className="hg-btn hg-btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: 11, textDecoration: 'none' }}
+                      >
+                        Inspect
+                      </Link>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* Pagination */}
-          {alerts.total > alerts.page_size && (
-            <div className="hg-pagination" style={{ padding: '12px 20px' }}>
-              <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>
-                Showing {((page - 1) * alerts.page_size) + 1}–
-                {Math.min(page * alerts.page_size, alerts.total)} of&nbsp;
-                <strong>{alerts.total}</strong> alerts
-              </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  className="hg-btn hg-btn-secondary"
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  style={{ padding: '6px 12px' }}
-                >
-                  ← Prev
-                </button>
-                <button
-                  className="hg-btn hg-btn-secondary"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page * alerts.page_size >= alerts.total}
-                  style={{ padding: '6px 12px' }}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 }
-
-export default Alerts;

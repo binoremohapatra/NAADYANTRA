@@ -1,5 +1,8 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { apiClient } from '../api/client';
+import { useTheme } from '../context/ThemeContext';
+import { useDemo } from '../context/DemoContext';
 
 interface LayoutProps {
   onLogout: () => void;
@@ -16,6 +19,26 @@ const NAV_ITEMS = [
         <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9"/>
         <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9"/>
         <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/diagnostics',
+    label: 'Diagnostic Workspace',
+    icon: (
+      <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 13h12M4 9l3-4 2.5 3 2.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="9.5" cy="8" r="1" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/training',
+    label: 'Training Studio',
+    icon: (
+      <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2l6 3.5v5L8 14 2 10.5v-5L8 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+        <path d="M8 6v4M6 8h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -81,6 +104,9 @@ const NAV_ITEMS = [
 function Layout({ onLogout }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
+  const { isDemoMode, toggleDemoMode } = useDemo();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -97,11 +123,13 @@ function Layout({ onLogout }: LayoutProps) {
   // Determine current page title for the topbar
   const pageTitle = (() => {
     const path = location.pathname;
-    if (path === '/') return 'Overview';
+    if (path === '/') return 'Command Centre Overview';
+    if (path.startsWith('/diagnostics')) return 'Diagnostic Workspace';
+    if (path.startsWith('/training')) return 'Vocational Training Studio';
     if (path.startsWith('/devices')) return 'Device Management';
     if (path.startsWith('/sessions')) return 'Training Sessions';
     if (path.startsWith('/trainees')) return 'Trainee Directory';
-    if (path.startsWith('/assessments')) return 'Assessments & Rubrics';
+    if (path.startsWith('/assessments')) return 'NSQF Skill Assessments';
     if (path.startsWith('/alerts')) return 'Hazard Alerts';
     return 'Dashboard';
   })();
@@ -109,13 +137,13 @@ function Layout({ onLogout }: LayoutProps) {
   return (
     <div className="hg-layout">
       {/* Sidebar */}
-      <aside className="hg-sidebar">
+      <aside className={`hg-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         {/* Brand */}
         <div className="hg-sidebar-brand">
           <div className="hg-sidebar-wordmark">
             HAZE<span className="hg-sidebar-accent">GUARD</span>
           </div>
-          <div className="hg-sidebar-sub">Admin Console</div>
+          <div className="hg-sidebar-sub">NAADYANTRA SIH26244</div>
         </div>
 
         {/* Navigation */}
@@ -128,6 +156,7 @@ function Layout({ onLogout }: LayoutProps) {
               className={({ isActive }) =>
                 `hg-sidebar-link${isActive ? ' active' : ''}`
               }
+              onClick={() => setMobileMenuOpen(false)}
             >
               {item.icon}
               {item.label}
@@ -137,6 +166,10 @@ function Layout({ onLogout }: LayoutProps) {
 
         {/* Footer */}
         <div className="hg-sidebar-footer">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 10px', fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+            <span className="hg-dot hg-dot-ok" style={{ width: 6, height: 6 }} />
+            <span>Role: Trainer / Assessor</span>
+          </div>
           <button className="hg-sidebar-logout" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -151,22 +184,87 @@ function Layout({ onLogout }: LayoutProps) {
       <div className="hg-main">
         {/* Top bar */}
         <header className="hg-topbar">
+          <button
+            className="hg-btn hg-btn-ghost md:hidden"
+            style={{ display: 'none', padding: 4 }}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            ☰
+          </button>
+
           <div style={{ flex: 1 }}>
             <span className="hg-topbar-title">{pageTitle}</span>
           </div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 12,
-            color: 'var(--color-warm-graphite)'
-          }}>
-            <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-              SIH26244
-            </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Demo Mode Toggle */}
+            <button
+              onClick={toggleDemoMode}
+              className={`hg-btn ${isDemoMode ? 'hg-btn-primary' : 'hg-btn-secondary'}`}
+              style={{
+                fontSize: 11,
+                padding: '4px 10px',
+                height: 30,
+                borderRadius: 99,
+                fontWeight: 700,
+              }}
+              title={isDemoMode ? 'Click to switch to live production backend' : 'Click to enable isolated offline demo mode'}
+            >
+              {isDemoMode ? '🧪 Demo Mode: ON' : 'Live Backend'}
+            </button>
+
+            {/* Light / Dark Mode Toggle */}
+            <button
+              className="hg-theme-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+              aria-label="Toggle Theme"
+            >
+              {theme === 'light' ? (
+                /* Moon Icon */
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 9.5A6.5 6.5 0 1 1 6.5 2 5 5 0 0 0 14 9.5z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                /* Sun Icon */
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="8" cy="8" r="3.5"/>
+                  <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Platform Tag */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 11,
+              color: 'var(--color-warm-graphite)',
+              background: 'var(--color-warm-stone)',
+              padding: '4px 8px',
+              borderRadius: 6,
+            }}>
+              <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                PS26244
+              </span>
+            </div>
           </div>
         </header>
+
+        {/* Persistent Demo Mode Banner */}
+        {isDemoMode && (
+          <div className="hg-demo-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="hg-demo-pill">DEMO / SIMULATED</span>
+              <span>Isolated Client Fixtures Active · Zero Production API Ingestion · Deterministic Diagnostics</span>
+            </div>
+            <button className="hg-demo-exit" onClick={toggleDemoMode}>
+              Exit Demo Mode
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="hg-content">

@@ -59,8 +59,12 @@ export interface Event {
   gas_ratio: number | null;
   temperature: number | null;
   uv_delta: number | null;
+  distance_mm?: number | null;
+  battery_v?: number | null;
   wet: boolean | null;
   firmware_version?: string | null;
+  raw_payload?: Record<string, any>;
+  ingestion_status?: string;
 }
 
 export interface Session {
