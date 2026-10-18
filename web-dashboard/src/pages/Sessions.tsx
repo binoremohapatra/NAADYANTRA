@@ -9,6 +9,7 @@ function Sessions() {
   const [page, setPage] = useState(1);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [selectedTraineeId, setSelectedTraineeId] = useState('');
+  const [exportingId, setExportingId] = useState<number | null>(null);
 
   useEffect(() => {
     loadSessions();
@@ -31,176 +32,197 @@ function Sessions() {
   };
 
   const formatTimestamp = (timestamp: string | null) => {
-    if (!timestamp) return 'In Progress';
+    if (!timestamp) return '—';
     return new Date(timestamp).toLocaleString();
   };
 
   const calculateDuration = (start: string, end: string | null) => {
-    if (!end) return 'Active';
-    const s = new Date(start).getTime();
-    const e = new Date(end).getTime();
-    const sec = Math.max(0, Math.floor((e - s) / 1000));
+    if (!end) return null;
+    const sec = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
     const mins = Math.floor(sec / 60);
     const remSec = sec % 60;
     return `${mins}m ${remSec}s`;
   };
 
+  const handleExportCsv = async (session: Session) => {
+    setExportingId(session.id);
+    try {
+      const res = await apiClient.exportSessionCsv(session.id);
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.filename || `session_${session.id}_export.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to export session telemetry CSV');
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const totalPages = sessions ? Math.max(1, Math.ceil(sessions.total / 25)) : 1;
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="hg-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-obsidian">Training Sessions</h2>
-          <p className="text-sm text-warmGraphite">
-            Recorded trainee diagnostic sessions with device linkage
+          <h1 className="hg-page-title">Training Sessions</h1>
+          <p className="hg-page-subtitle">
+            Recorded diagnostic sessions with device linkage and CSV export
           </p>
         </div>
-        <button
-          onClick={loadSessions}
-          className="px-3 py-1.5 text-sm bg-white border border-warmStone rounded hover:bg-softSand text-obsidian transition-colors"
-        >
+        <button className="hg-btn hg-btn-secondary" onClick={loadSessions}>
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           Refresh
         </button>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 border border-warmStone flex flex-col sm:flex-row gap-4">
-        <input
-          type="text"
-          placeholder="Filter by Device ID (e.g. SIH-DEV-01)..."
-          value={selectedDeviceId}
-          onChange={(e) => {
-            setSelectedDeviceId(e.target.value);
-            setPage(1);
-          }}
-          className="flex-1 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-        />
-        <input
-          type="text"
-          placeholder="Filter by Trainee ID (e.g. T001)..."
-          value={selectedTraineeId}
-          onChange={(e) => {
-            setSelectedTraineeId(e.target.value);
-            setPage(1);
-          }}
-          className="flex-1 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-        />
+      <div className="hg-card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label className="hg-label">Device ID</label>
+            <input
+              type="text"
+              className="hg-input"
+              placeholder="e.g. SIH-DEV-01"
+              value={selectedDeviceId}
+              onChange={(e) => { setSelectedDeviceId(e.target.value); setPage(1); }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label className="hg-label">Trainee ID</label>
+            <input
+              type="text"
+              className="hg-input"
+              placeholder="e.g. T001"
+              value={selectedTraineeId}
+              onChange={(e) => { setSelectedTraineeId(e.target.value); setPage(1); }}
+            />
+          </div>
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-warmGraphite py-8 text-center">Loading training sessions...</div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">
-          {error}
+      {isLoading && (
+        <div className="hg-loading-screen">
+          <div className="hg-spinner" />
+          <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>Loading sessions…</span>
         </div>
-      ) : !sessions || sessions.items.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 border border-warmStone text-center text-warmGraphite">
-          No training sessions found.
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow border border-warmStone overflow-hidden">
-          <table className="min-w-full divide-y divide-warmStone">
-            <thead className="bg-warmStone">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Session ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Device ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Trainee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Started At
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-warmStone">
-              {sessions.items.map((session) => (
-                <tr key={session.id} className="hover:bg-softSand/30 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-obsidian">
-                    #{session.session_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {session.device_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-burntOrange">
-                    {session.trainee_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {formatTimestamp(session.started_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {calculateDuration(session.started_at, session.ended_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        session.ended_at
-                          ? 'bg-gray-100 text-gray-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}
-                    >
-                      {session.ended_at ? 'Completed' : 'Active'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await apiClient.exportSessionCsv(session.id);
-                          const blob = new Blob([res.data], { type: 'text/csv' });
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = res.filename || `session_${session.id}_export.csv`;
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                        } catch (err) {
-                          alert('Failed to export session telemetry CSV');
-                        }
-                      }}
-                      className="px-2.5 py-1 text-xs font-medium bg-offWhite border border-warmStone text-obsidian rounded hover:border-burntOrange hover:text-burntOrange transition-colors"
-                    >
-                      Export CSV
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
 
-          {/* Pagination */}
-          <div className="px-6 py-4 bg-white border-t border-warmStone flex items-center justify-between">
-            <span className="text-sm text-warmGraphite">
-              Total {sessions.total} session records
+      {error && !isLoading && (
+        <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{error}</div>
+      )}
+
+      {!isLoading && !error && sessions && sessions.items.length === 0 && (
+        <div className="hg-card">
+          <div className="hg-empty">
+            <div className="hg-empty-icon">📋</div>
+            <p className="hg-empty-title">No sessions found</p>
+            <p className="hg-empty-desc">Try adjusting the filters above.</p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && sessions && sessions.items.length > 0 && (
+        <div className="hg-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="hg-table">
+              <thead>
+                <tr>
+                  <th>Session ID</th>
+                  <th>Device ID</th>
+                  <th>Trainee</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.items.map((session) => {
+                  const duration = calculateDuration(session.started_at, session.ended_at);
+                  return (
+                    <tr key={session.id}>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-carbon)' }}>
+                          #{session.session_id}
+                        </span>
+                      </td>
+                      <td><code className="hg-code">{session.device_id}</code></td>
+                      <td>
+                        <span className="hg-badge hg-badge-orange">{session.trainee_id}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+                          {formatTimestamp(session.started_at)}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                          {duration ?? '—'}
+                        </span>
+                      </td>
+                      <td>
+                        {session.ended_at ? (
+                          <span className="hg-badge hg-badge-neutral">Completed</span>
+                        ) : (
+                          <span className="hg-badge hg-badge-ok">
+                            <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="hg-btn hg-btn-secondary"
+                          style={{ padding: '5px 10px', fontSize: 12 }}
+                          onClick={() => handleExportCsv(session)}
+                          disabled={exportingId === session.id}
+                        >
+                          {exportingId === session.id ? (
+                            <span className="hg-spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M6 1v6M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M1 9v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                            </svg>
+                          )}
+                          CSV
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="hg-pagination" style={{ padding: '12px 20px' }}>
+            <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>
+              {sessions.total} total session{sessions.total !== 1 ? 's' : ''} · Page {page}/{totalPages}
             </span>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 6 }}>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
               >
-                Previous
+                ← Prev
               </button>
-              <span className="px-3 py-1 text-sm text-warmGraphite">
-                Page {page} of {Math.max(1, Math.ceil(sessions.total / 25))}
-              </span>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page * 25 >= sessions.total}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
+                disabled={page >= totalPages}
               >
-                Next
+                Next →
               </button>
             </div>
           </div>

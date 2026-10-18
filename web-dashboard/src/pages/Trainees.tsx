@@ -10,7 +10,6 @@ export default function Trainees() {
   const [cohortFilter, setCohortFilter] = useState('');
   const [page, setPage] = useState(1);
 
-  // New trainee modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTraineeId, setNewTraineeId] = useState('');
   const [newName, setNewName] = useState('');
@@ -18,7 +17,6 @@ export default function Trainees() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Performance history modal
   const [selectedTrainee, setSelectedTrainee] = useState<Trainee | null>(null);
   const [traineeSessions, setTraineeSessions] = useState<Session[]>([]);
   const [traineeAssessments, setTraineeAssessments] = useState<Assessment[]>([]);
@@ -87,161 +85,171 @@ export default function Trainees() {
     }
   };
 
+  const totalPages = trainees ? Math.max(1, Math.ceil(trainees.total / 25)) : 1;
+
+  const outcomeColor = (outcome: string) => {
+    if (outcome === 'competent') return 'hg-badge-ok';
+    if (outcome === 'needs_improvement') return 'hg-badge-caution';
+    return 'hg-badge-neutral';
+  };
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="hg-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-obsidian tracking-tight">Trainee Directory</h2>
-          <p className="text-sm text-warmGraphite">
-            Vocational candidates enrolled in acoustic inspection and leak diagnostic training
+          <h1 className="hg-page-title">Trainee Directory</h1>
+          <p className="hg-page-subtitle">
+            Vocational candidates enrolled in acoustic inspection and hazard diagnostic training
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors shadow-sm"
-          >
-            + Register Trainee
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="hg-btn hg-btn-primary" onClick={() => setIsModalOpen(true)}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Register Trainee
           </button>
-          <button
-            onClick={loadTrainees}
-            className="px-3 py-1.5 text-sm bg-white border border-warmStone rounded hover:bg-softSand text-obsidian transition-colors"
-          >
+          <button className="hg-btn hg-btn-secondary" onClick={loadTrainees}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             Refresh
           </button>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-warmStone flex flex-col sm:flex-row gap-4">
-        <input
-          type="text"
-          placeholder="Search by ID or Candidate Name..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="flex-1 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-        />
-        <input
-          type="text"
-          placeholder="Filter by Cohort (e.g. Cohort-2026A)..."
-          value={cohortFilter}
-          onChange={(e) => {
-            setCohortFilter(e.target.value);
-            setPage(1);
-          }}
-          className="w-full sm:w-64 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-        />
+      <div className="hg-card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="hg-label">Search</label>
+            <input
+              type="text"
+              className="hg-input"
+              placeholder="Search by ID or name…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+          <div style={{ flex: '0 0 220px' }}>
+            <label className="hg-label">Cohort</label>
+            <input
+              type="text"
+              className="hg-input"
+              placeholder="e.g. Cohort-2026A"
+              value={cohortFilter}
+              onChange={(e) => { setCohortFilter(e.target.value); setPage(1); }}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="text-warmGraphite py-12 text-center">Loading trainee roster...</div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">{error}</div>
-      ) : !trainees || trainees.items.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm p-12 border border-warmStone text-center">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-softSand/50 flex items-center justify-center text-warmGraphite">
-            👥
-          </div>
-          <h3 className="text-lg font-semibold text-obsidian mb-1">No Trainees Registered</h3>
-          <p className="text-sm text-warmGraphite max-w-md mx-auto mb-6">
-            No vocational candidates have been added to the system yet. Register trainees to link diagnostic sessions and skill assessments.
-          </p>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors"
-          >
-            Register First Candidate
-          </button>
+      {isLoading && (
+        <div className="hg-loading-screen">
+          <div className="hg-spinner" />
+          <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>Loading trainee roster…</span>
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-warmStone overflow-hidden">
-          <table className="min-w-full divide-y divide-warmStone">
-            <thead className="bg-warmStone/60">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Trainee ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Full Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Cohort
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Enrolled On
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-warmStone">
-              {trainees.items.map((t) => (
-                <tr key={t.id} className="hover:bg-softSand/20 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-burntOrange">
-                    {t.trainee_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-obsidian">
-                    {t.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {t.cohort || <span className="italic text-gray-400">General</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {new Date(t.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
-                        t.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {t.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button
-                      onClick={() => handleViewPerformance(t)}
-                      className="px-3 py-1 text-xs font-medium bg-offWhite border border-warmStone text-obsidian rounded hover:border-burntOrange hover:text-burntOrange transition-colors"
-                    >
-                      View Performance
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
 
-          {/* Pagination */}
-          <div className="px-6 py-4 bg-white border-t border-warmStone flex items-center justify-between">
-            <span className="text-sm text-warmGraphite">
-              Total {trainees.total} candidates enrolled
+      {error && !isLoading && (
+        <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{error}</div>
+      )}
+
+      {!isLoading && !error && trainees && trainees.items.length === 0 && (
+        <div className="hg-card">
+          <div className="hg-empty">
+            <div className="hg-empty-icon">👥</div>
+            <p className="hg-empty-title">No trainees registered</p>
+            <p className="hg-empty-desc">
+              {trainees.total === 0
+                ? 'Register candidates to link sessions and assessments.'
+                : 'No candidates match the current search.'}
+            </p>
+            {trainees.total === 0 && (
+              <button className="hg-btn hg-btn-primary" style={{ marginTop: 16 }} onClick={() => setIsModalOpen(true)}>
+                Register First Candidate
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isLoading && trainees && trainees.items.length > 0 && (
+        <div className="hg-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="hg-table">
+              <thead>
+                <tr>
+                  <th>Trainee ID</th>
+                  <th>Full Name</th>
+                  <th>Cohort</th>
+                  <th>Enrolled On</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trainees.items.map((t) => (
+                  <tr key={t.id}>
+                    <td>
+                      <code className="hg-code" style={{ color: 'var(--color-dark-burnt-orange)', fontWeight: 600 }}>
+                        {t.trainee_id}
+                      </code>
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{t.name}</td>
+                    <td>
+                      {t.cohort ? (
+                        <span className="hg-badge hg-badge-orange">{t.cohort}</span>
+                      ) : (
+                        <span style={{ color: 'var(--color-soft-sand)', fontSize: 12 }}>General</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+                      {new Date(t.created_at).toLocaleDateString()}
+                    </td>
+                    <td>
+                      {t.is_active ? (
+                        <span className="hg-badge hg-badge-ok">Active</span>
+                      ) : (
+                        <span className="hg-badge hg-badge-neutral">Inactive</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="hg-btn hg-btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: 12 }}
+                        onClick={() => handleViewPerformance(t)}
+                      >
+                        Performance →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="hg-pagination" style={{ padding: '12px 20px' }}>
+            <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>
+              {trainees.total} candidate{trainees.total !== 1 ? 's' : ''} enrolled · Page {page}/{totalPages}
             </span>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 6 }}>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
               >
-                Previous
+                ← Prev
               </button>
-              <span className="px-3 py-1 text-sm text-warmGraphite">
-                Page {page} of {Math.max(1, Math.ceil(trainees.total / 25))}
-              </span>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page * 25 >= trainees.total}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
+                disabled={page >= totalPages}
               >
-                Next
+                Next →
               </button>
             </div>
           </div>
@@ -250,226 +258,188 @@ export default function Trainees() {
 
       {/* Register Trainee Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-warmStone">
-            <h3 className="text-lg font-bold text-obsidian mb-1">Enroll New Trainee</h3>
-            <p className="text-xs text-warmGraphite mb-4">
-              Enter candidate details to assign diagnostic sensor rigs and track vocational competencies.
-            </p>
-
-            {formError && (
-              <div className="bg-red-50 text-red-700 text-xs p-3 rounded mb-4 border border-red-200">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateTrainee} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Candidate ID *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. TR-2026-001"
-                  value={newTraineeId}
-                  onChange={(e) => setNewTraineeId(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Full Candidate Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Ramesh Kumar"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Assigned Cohort / Batch
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Industrial Pipefitting Cohort A"
-                  value={newCohort}
-                  onChange={(e) => setNewCohort(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-warmStone">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm text-warmGraphite hover:text-obsidian"
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Registering...' : 'Register Trainee'}
-                </button>
-              </div>
-            </form>
+        <div className="hg-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+          <div className="hg-modal">
+            <div className="hg-modal-header">
+              <span className="hg-modal-title">Register Trainee</span>
+              <button className="hg-close-btn" onClick={() => setIsModalOpen(false)}>×</button>
+            </div>
+            <div className="hg-modal-body">
+              {formError && (
+                <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{formError}</div>
+              )}
+              <form id="trainee-form" onSubmit={handleCreateTrainee}>
+                <div className="hg-form-group">
+                  <label className="hg-label">Trainee ID *</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    required
+                    placeholder="e.g. T-2026-001"
+                    style={{ fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}
+                    value={newTraineeId}
+                    onChange={(e) => setNewTraineeId(e.target.value)}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--color-warm-graphite)', marginTop: 4 }}>
+                    Will be stored in uppercase. Must be unique.
+                  </div>
+                </div>
+                <div className="hg-form-group">
+                  <label className="hg-label">Full Name *</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    required
+                    placeholder="Candidate full name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </div>
+                <div className="hg-form-group" style={{ marginBottom: 0 }}>
+                  <label className="hg-label">Cohort</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    placeholder="e.g. Cohort-2026A (optional)"
+                    value={newCohort}
+                    onChange={(e) => setNewCohort(e.target.value)}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="hg-modal-footer">
+              <button className="hg-btn hg-btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+              <button type="submit" form="trainee-form" className="hg-btn hg-btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? <><span className="hg-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Registering…</> : 'Register Candidate'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Trainee Performance Modal */}
+      {/* Performance Modal */}
       {selectedTrainee && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 border border-warmStone max-h-[85vh] flex flex-col">
-            <div className="flex justify-between items-start border-b border-warmStone pb-4 mb-4">
+        <div className="hg-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setSelectedTrainee(null); }}>
+          <div className="hg-modal hg-modal-lg">
+            <div className="hg-modal-header">
               <div>
-                <span className="text-xs font-mono font-bold text-burntOrange uppercase">
-                  Candidate Dossier
-                </span>
-                <h3 className="text-xl font-bold text-obsidian">{selectedTrainee.name}</h3>
-                <p className="text-xs text-warmGraphite">
-                  ID: <span className="font-mono">{selectedTrainee.trainee_id}</span> • Cohort:{' '}
-                  {selectedTrainee.cohort || 'General'}
-                </p>
+                <div className="hg-modal-title">
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 15 }}>{selectedTrainee.trainee_id}</code>
+                  &nbsp;·&nbsp;{selectedTrainee.name}
+                </div>
+                {selectedTrainee.cohort && (
+                  <div style={{ fontSize: 12, color: 'var(--color-warm-graphite)', marginTop: 2 }}>
+                    {selectedTrainee.cohort}
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setSelectedTrainee(null)}
-                className="text-warmGraphite hover:text-obsidian text-lg font-bold"
-              >
-                ✕
-              </button>
+              <button className="hg-close-btn" onClick={() => setSelectedTrainee(null)}>×</button>
             </div>
-
-            <div className="overflow-y-auto space-y-6 pr-1">
+            <div className="hg-modal-body">
               {isLoadingHistory ? (
-                <div className="py-8 text-center text-warmGraphite text-sm">
-                  Loading performance records...
+                <div className="hg-loading-screen" style={{ minHeight: 120 }}>
+                  <div className="hg-spinner" />
+                  <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>Loading performance history…</span>
                 </div>
               ) : (
                 <>
-                  {/* Summary Metric Strip */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div className="p-3 bg-offWhite rounded border border-warmStone">
-                      <div className="text-xs text-warmGraphite uppercase">Diagnostic Sessions</div>
-                      <div className="text-2xl font-bold font-mono text-obsidian">
-                        {traineeSessions.length}
-                      </div>
+                  {/* Sessions */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-carbon)', marginBottom: 10 }}>
+                      Recent Sessions ({traineeSessions.length})
                     </div>
-                    <div className="p-3 bg-offWhite rounded border border-warmStone">
-                      <div className="text-xs text-warmGraphite uppercase">Formal Evaluations</div>
-                      <div className="text-2xl font-bold font-mono text-burntOrange">
-                        {traineeAssessments.length}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-offWhite rounded border border-warmStone col-span-2 sm:col-span-1">
-                      <div className="text-xs text-warmGraphite uppercase">Competency Ratio</div>
-                      <div className="text-2xl font-bold font-mono text-obsidian">
-                        {traineeAssessments.length > 0
-                          ? `${Math.round(
-                              (traineeAssessments.filter((a) => a.outcome === 'competent').length /
-                                traineeAssessments.length) *
-                                100
-                            )}%`
-                          : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sessions Section */}
-                  <div>
-                    <h4 className="text-xs font-bold text-warmGraphite uppercase tracking-wider mb-2">
-                      Recent Diagnostic Runs
-                    </h4>
                     {traineeSessions.length === 0 ? (
-                      <div className="p-3 bg-offWhite rounded text-xs text-warmGraphite text-center border border-warmStone">
-                        No recorded sessions found for this trainee.
-                      </div>
+                      <p style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>No sessions recorded.</p>
                     ) : (
-                      <div className="space-y-2">
-                        {traineeSessions.map((s) => (
-                          <div
-                            key={s.id}
-                            className="p-3 border border-warmStone rounded bg-white flex justify-between items-center text-xs"
-                          >
-                            <div>
-                              <span className="font-mono font-bold text-obsidian">#{s.session_id}</span>
-                              <span className="text-warmGraphite ml-2">Node: {s.device_id}</span>
-                            </div>
-                            <span className="text-warmGraphite">
-                              {new Date(s.started_at).toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="hg-table" style={{ fontSize: 12 }}>
+                          <thead>
+                            <tr>
+                              <th>Session #</th>
+                              <th>Device</th>
+                              <th>Started</th>
+                              <th>Duration</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {traineeSessions.map((s) => {
+                              const dur = s.ended_at
+                                ? `${Math.floor((new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000)}m`
+                                : null;
+                              return (
+                                <tr key={s.id}>
+                                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>#{s.session_id}</td>
+                                  <td><code className="hg-code">{s.device_id}</code></td>
+                                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-warm-graphite)' }}>
+                                    {new Date(s.started_at).toLocaleString()}
+                                  </td>
+                                  <td style={{ fontFamily: 'var(--font-mono)' }}>{dur ?? '—'}</td>
+                                  <td>
+                                    {s.ended_at ? (
+                                      <span className="hg-badge hg-badge-neutral">Done</span>
+                                    ) : (
+                                      <span className="hg-badge hg-badge-ok">Active</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
 
-                  {/* Assessments Section */}
+                  <hr className="hg-divider" />
+
+                  {/* Assessments */}
                   <div>
-                    <h4 className="text-xs font-bold text-warmGraphite uppercase tracking-wider mb-2">
-                      Vocational Rubric Evaluations
-                    </h4>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-carbon)', marginBottom: 10 }}>
+                      Assessments ({traineeAssessments.length})
+                    </div>
                     {traineeAssessments.length === 0 ? (
-                      <div className="p-3 bg-offWhite rounded text-xs text-warmGraphite text-center border border-warmStone">
-                        No formal assessments completed yet.
-                      </div>
+                      <p style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>No assessments recorded.</p>
                     ) : (
-                      <div className="space-y-2">
-                        {traineeAssessments.map((a) => (
-                          <div
-                            key={a.id}
-                            className="p-3 border border-warmStone rounded bg-white flex justify-between items-center text-xs"
-                          >
-                            <div>
-                              <span className="font-mono font-bold text-obsidian">
-                                {a.assessment_id}
-                              </span>
-                              <span className="text-warmGraphite ml-2">Rubric: {a.rubric_id}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {a.score !== null && (
-                                <span className="font-mono font-bold text-obsidian">
-                                  Score: {a.score}
-                                </span>
-                              )}
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  a.outcome === 'competent'
-                                    ? 'bg-green-100 text-green-800'
-                                    : a.outcome === 'needs_improvement'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {a.outcome.replace('_', ' ')}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="hg-table" style={{ fontSize: 12 }}>
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>Rubric</th>
+                              <th>Score</th>
+                              <th>Outcome</th>
+                              <th>Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {traineeAssessments.map((a) => (
+                              <tr key={a.id}>
+                                <td><code className="hg-code" style={{ fontSize: 10 }}>{a.assessment_id.slice(0, 12)}…</code></td>
+                                <td style={{ fontFamily: 'var(--font-mono)' }}>{a.rubric_id}</td>
+                                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                                  {a.score != null && a.max_score != null ? `${a.score}/${a.max_score}` : '—'}
+                                </td>
+                                <td>
+                                  <span className={`hg-badge ${outcomeColor(a.outcome)}`}>
+                                    {a.outcome.replace('_', ' ')}
+                                  </span>
+                                </td>
+                                <td style={{ color: 'var(--color-warm-graphite)' }}>
+                                  {new Date(a.created_at).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
                 </>
               )}
             </div>
-
-            <div className="pt-4 mt-4 border-t border-warmStone flex justify-end">
-              <button
-                onClick={() => setSelectedTrainee(null)}
-                className="px-4 py-2 text-sm bg-warmStone rounded hover:bg-softSand text-obsidian font-medium transition-colors"
-              >
-                Close Dossier
-              </button>
+            <div className="hg-modal-footer">
+              <button className="hg-btn hg-btn-secondary" onClick={() => setSelectedTrainee(null)}>Close</button>
             </div>
           </div>
         </div>

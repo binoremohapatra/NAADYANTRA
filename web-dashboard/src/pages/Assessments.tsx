@@ -10,11 +10,9 @@ export default function Assessments() {
   const [traineeFilter, setTraineeFilter] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState('');
   const [page, setPage] = useState(1);
-
-  // Tabs: 'evaluations' | 'rubrics'
   const [activeTab, setActiveTab] = useState<'evaluations' | 'rubrics'>('evaluations');
 
-  // Review & Detail Modal
+  // Review Modal
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [reviewComments, setReviewComments] = useState('');
   const [overrideScore, setOverrideScore] = useState<string>('');
@@ -91,9 +89,7 @@ export default function Assessments() {
       });
       setReviewSuccess('Trainer review logged and assessment updated.');
       await loadAssessments();
-      setTimeout(() => {
-        setSelectedAssessment(null);
-      }, 1200);
+      setTimeout(() => setSelectedAssessment(null), 1200);
     } catch (err: any) {
       setReviewError(err.response?.data?.detail || 'Failed to submit trainer review');
     } finally {
@@ -138,240 +134,250 @@ export default function Assessments() {
     }
   };
 
-  const getOutcomeBadge = (outcome: string) => {
-    switch (outcome.toLowerCase()) {
+  const outcomeBadge = (outcome: string) => {
+    switch (outcome?.toLowerCase()) {
       case 'competent':
-        return <span className="px-2.5 py-0.5 text-xs font-bold bg-green-100 text-green-800 rounded-full">COMPETENT</span>;
+        return <span className="hg-badge hg-badge-ok">✓ Competent</span>;
       case 'needs_improvement':
-        return <span className="px-2.5 py-0.5 text-xs font-bold bg-amber-100 text-amber-800 rounded-full">NEEDS IMPROVEMENT</span>;
+        return <span className="hg-badge hg-badge-caution">△ Needs Improvement</span>;
       default:
-        return <span className="px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-800 rounded-full">NOT ASSESSABLE</span>;
+        return <span className="hg-badge hg-badge-neutral">Not Assessable</span>;
     }
   };
 
+  const totalPages = assessments ? Math.max(1, Math.ceil(assessments.total / 25)) : 1;
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="hg-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-obsidian tracking-tight">Vocational Assessments</h2>
-          <p className="text-sm text-warmGraphite">
+          <h1 className="hg-page-title">Vocational Assessments</h1>
+          <p className="hg-page-subtitle">
             Diagnostic session evaluations mapped to skilled trades competency rubrics
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors shadow-sm"
-          >
-            + Create Evaluation
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="hg-btn hg-btn-primary" onClick={() => setIsCreateModalOpen(true)}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Create Evaluation
           </button>
-          <button
-            onClick={() => {
-              loadAssessments();
-              loadRubrics();
-            }}
-            className="px-3 py-1.5 text-sm bg-white border border-warmStone rounded hover:bg-softSand text-obsidian transition-colors"
-          >
+          <button className="hg-btn hg-btn-secondary" onClick={() => { loadAssessments(); loadRubrics(); }}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             Refresh
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-warmStone mb-6">
-        <button
-          onClick={() => setActiveTab('evaluations')}
-          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'evaluations'
-              ? 'border-burntOrange text-burntOrange'
-              : 'border-transparent text-warmGraphite hover:text-obsidian'
-          }`}
-        >
-          Session Evaluations
-        </button>
-        <button
-          onClick={() => setActiveTab('rubrics')}
-          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'rubrics'
-              ? 'border-burntOrange text-burntOrange'
-              : 'border-transparent text-warmGraphite hover:text-obsidian'
-          }`}
-        >
-          Competency Rubrics ({rubrics.length})
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <div className="hg-tabs">
+          <button
+            className={`hg-tab${activeTab === 'evaluations' ? ' active' : ''}`}
+            onClick={() => setActiveTab('evaluations')}
+          >
+            Session Evaluations
+          </button>
+          <button
+            className={`hg-tab${activeTab === 'rubrics' ? ' active' : ''}`}
+            onClick={() => setActiveTab('rubrics')}
+          >
+            Competency Rubrics ({rubrics.length})
+          </button>
+        </div>
       </div>
 
-      {activeTab === 'evaluations' ? (
+      {activeTab === 'evaluations' && (
         <>
-          {/* Filter Bar */}
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-warmStone flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              placeholder="Filter by Trainee ID..."
-              value={traineeFilter}
-              onChange={(e) => {
-                setTraineeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="flex-1 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-            />
-            <select
-              value={outcomeFilter}
-              onChange={(e) => {
-                setOutcomeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full sm:w-64 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-            >
-              <option value="">All Outcomes</option>
-              <option value="competent">Competent</option>
-              <option value="needs_improvement">Needs Improvement</option>
-              <option value="not_assessable">Not Assessable</option>
-            </select>
+          {/* Filters */}
+          <div className="hg-card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className="hg-label">Trainee ID</label>
+                <input
+                  type="text"
+                  className="hg-input"
+                  placeholder="Filter by trainee ID…"
+                  value={traineeFilter}
+                  onChange={(e) => { setTraineeFilter(e.target.value); setPage(1); }}
+                />
+              </div>
+              <div style={{ flex: '0 0 200px' }}>
+                <label className="hg-label">Outcome</label>
+                <select
+                  className="hg-input"
+                  value={outcomeFilter}
+                  onChange={(e) => { setOutcomeFilter(e.target.value); setPage(1); }}
+                >
+                  <option value="">All outcomes</option>
+                  <option value="competent">Competent</option>
+                  <option value="needs_improvement">Needs Improvement</option>
+                  <option value="not_assessable">Not Assessable</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          {/* Evaluations Table */}
-          {isLoading ? (
-            <div className="text-warmGraphite py-12 text-center">Loading assessment records...</div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">{error}</div>
-          ) : !assessments || assessments.items.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 border border-warmStone text-center">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-softSand/50 flex items-center justify-center text-warmGraphite">
-                📋
-              </div>
-              <h3 className="text-lg font-semibold text-obsidian mb-1">No Assessments On Record</h3>
-              <p className="text-sm text-warmGraphite max-w-md mx-auto mb-6">
-                No session evaluations have been logged yet. Create an assessment from an active or archived diagnostic session to evaluate vocational performance.
-              </p>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors"
-              >
-                Create First Evaluation
-              </button>
+          {isLoading && (
+            <div className="hg-loading-screen">
+              <div className="hg-spinner" />
+              <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>Loading assessments…</span>
             </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-warmStone overflow-hidden">
-              <table className="min-w-full divide-y divide-warmStone">
-                <thead className="bg-warmStone/60">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Evaluation ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Trainee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Session
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Rubric
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Score
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Outcome
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-warmStone">
-                  {assessments.items.map((a) => (
-                    <tr key={a.id} className="hover:bg-softSand/20 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-obsidian">
-                        {a.assessment_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-burntOrange">
-                        {a.trainee_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-warmGraphite">
-                        #{a.session_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                        {a.rubric_id} <span className="text-xs text-gray-400">v{a.rubric_version}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-obsidian">
-                        {a.score !== null ? `${a.score} / ${a.max_score || 100}` : 'Pending'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {getOutcomeBadge(a.outcome)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          onClick={() => handleOpenReview(a)}
-                          className="px-3 py-1 text-xs font-medium bg-offWhite border border-warmStone text-obsidian rounded hover:border-burntOrange hover:text-burntOrange transition-colors"
-                        >
-                          Review & Override
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          )}
 
-              {/* Pagination */}
-              <div className="px-6 py-4 bg-white border-t border-warmStone flex items-center justify-between">
-                <span className="text-sm text-warmGraphite">
-                  Total {assessments.total} evaluation records
+          {error && !isLoading && (
+            <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{error}</div>
+          )}
+
+          {!isLoading && !error && assessments && assessments.items.length === 0 && (
+            <div className="hg-card">
+              <div className="hg-empty">
+                <div className="hg-empty-icon">📋</div>
+                <p className="hg-empty-title">No assessments on record</p>
+                <p className="hg-empty-desc">
+                  Create an evaluation from an active or archived diagnostic session.
+                </p>
+                <button className="hg-btn hg-btn-primary" style={{ marginTop: 16 }} onClick={() => setIsCreateModalOpen(true)}>
+                  Create First Evaluation
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && assessments && assessments.items.length > 0 && (
+            <div className="hg-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="hg-table">
+                  <thead>
+                    <tr>
+                      <th>Evaluation ID</th>
+                      <th>Trainee</th>
+                      <th>Session</th>
+                      <th>Rubric</th>
+                      <th>Score</th>
+                      <th>Outcome</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assessments.items.map((a) => (
+                      <tr key={a.id}>
+                        <td>
+                          <code className="hg-code" style={{ fontSize: 10 }}>{a.assessment_id.length > 14 ? a.assessment_id.slice(0, 14) + '…' : a.assessment_id}</code>
+                        </td>
+                        <td>
+                          <span className="hg-badge hg-badge-orange">{a.trainee_id}</span>
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                          #{a.session_id}
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          <span style={{ fontWeight: 500 }}>{a.rubric_id}</span>
+                          <span style={{ color: 'var(--color-warm-graphite)', marginLeft: 4 }}>v{a.rubric_version}</span>
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          {a.score !== null ? `${a.score} / ${a.max_score ?? 100}` : (
+                            <span style={{ color: 'var(--color-soft-sand)' }}>Pending</span>
+                          )}
+                        </td>
+                        <td>{outcomeBadge(a.outcome)}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="hg-btn hg-btn-secondary"
+                            style={{ padding: '5px 10px', fontSize: 12 }}
+                            onClick={() => handleOpenReview(a)}
+                          >
+                            Trainer Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="hg-pagination" style={{ padding: '12px 20px' }}>
+                <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>
+                  {assessments.total} assessment{assessments.total !== 1 ? 's' : ''} · Page {page}/{totalPages}
                 </span>
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: 6 }}>
                   <button
+                    className="hg-btn hg-btn-secondary"
+                    style={{ padding: '6px 12px' }}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
                   >
-                    Previous
+                    ← Prev
                   </button>
-                  <span className="px-3 py-1 text-sm text-warmGraphite">
-                    Page {page} of {Math.max(1, Math.ceil(assessments.total / 25))}
-                  </span>
                   <button
+                    className="hg-btn hg-btn-secondary"
+                    style={{ padding: '6px 12px' }}
                     onClick={() => setPage((p) => p + 1)}
-                    disabled={page * 25 >= assessments.total}
-                    className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
+                    disabled={page >= totalPages}
                   >
-                    Next
+                    Next →
                   </button>
                 </div>
               </div>
             </div>
           )}
         </>
-      ) : (
-        /* Rubrics Catalog */
-        <div className="space-y-4">
+      )}
+
+      {activeTab === 'rubrics' && (
+        <div>
           {rubrics.length === 0 ? (
-            <div className="p-8 bg-white border border-warmStone rounded-lg text-center text-warmGraphite">
-              No rubrics registered yet. Default NSQF competency rules will be loaded from the backend specification.
+            <div className="hg-card">
+              <div className="hg-empty">
+                <div className="hg-empty-icon">📐</div>
+                <p className="hg-empty-title">No rubrics configured</p>
+                <p className="hg-empty-desc">Assessment rubrics must be added via the backend API.</p>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {rubrics.map((r) => (
-                <div key={r.id} className="p-5 bg-white border border-warmStone rounded-lg shadow-sm">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono font-bold text-burntOrange uppercase">
-                      {r.rubric_id} (v{r.version})
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-800">
-                      ACTIVE
-                    </span>
+                <div key={r.id} className="hg-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <code className="hg-code" style={{ fontWeight: 700 }}>{r.rubric_id}</code>
+                        <span className="hg-badge hg-badge-neutral">v{r.version}</span>
+                        {!r.is_active && <span className="hg-badge hg-badge-danger">Inactive</span>}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-carbon)', marginBottom: 4 }}>{r.name}</div>
+                      {r.description && (
+                        <div style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>{r.description}</div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--color-warm-graphite)', textAlign: 'right', flexShrink: 0 }}>
+                      <div>Created by <strong>{r.created_by}</strong></div>
+                      <div style={{ fontFamily: 'var(--font-mono)' }}>{new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
                   </div>
-                  <h4 className="text-base font-bold text-obsidian mb-1">{r.name}</h4>
-                  <p className="text-xs text-warmGraphite mb-4">{r.description || 'Standard trade rubric'}</p>
-
-                  <div className="border-t border-warmStone pt-3">
-                    <span className="text-[10px] uppercase font-bold text-warmGraphite tracking-wider block mb-2">
-                      Scoring Rules / Competency Thresholds:
-                    </span>
-                    <pre className="text-xs font-mono bg-offWhite p-3 rounded overflow-x-auto text-obsidian border border-warmStone">
-                      {JSON.stringify(r.rules, null, 2)}
-                    </pre>
-                  </div>
+                  {Object.keys(r.rules || {}).length > 0 && (
+                    <details style={{ marginTop: 12 }}>
+                      <summary style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-warm-graphite)', cursor: 'pointer', userSelect: 'none' }}>
+                        View rubric rules ({Object.keys(r.rules).length} criteria)
+                      </summary>
+                      <pre style={{
+                        marginTop: 8,
+                        background: 'var(--color-warm-stone)',
+                        borderRadius: 6,
+                        padding: '12px 14px',
+                        fontSize: 11,
+                        fontFamily: 'var(--font-mono)',
+                        overflow: 'auto',
+                        color: 'var(--color-carbon)',
+                      }}>
+                        {JSON.stringify(r.rules, null, 2)}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
@@ -379,238 +385,203 @@ export default function Assessments() {
         </div>
       )}
 
-      {/* Review Modal */}
-      {selectedAssessment && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 border border-warmStone">
-            <h3 className="text-lg font-bold text-obsidian mb-1">Trainer Review & Evidence Audit</h3>
-            <p className="text-xs text-warmGraphite mb-4">
-              Evaluation: <span className="font-mono font-bold">{selectedAssessment.assessment_id}</span> • Trainee:{' '}
-              <span className="font-bold text-burntOrange">{selectedAssessment.trainee_id}</span>
-            </p>
-
-            {reviewError && (
-              <div className="bg-red-50 text-red-700 text-xs p-3 rounded mb-4 border border-red-200">
-                {reviewError}
-              </div>
-            )}
-            {reviewSuccess && (
-              <div className="bg-green-50 text-green-700 text-xs p-3 rounded mb-4 border border-green-200">
-                {reviewSuccess}
-              </div>
-            )}
-
-            <div className="space-y-3 mb-4 text-xs bg-offWhite p-3 rounded border border-warmStone">
-              <div>
-                <span className="font-bold text-warmGraphite">Linked Session ID:</span>{' '}
-                <span className="font-mono">#{selectedAssessment.session_id}</span>
-              </div>
-              <div>
-                <span className="font-bold text-warmGraphite">Evidence Event IDs:</span>{' '}
-                <span className="font-mono">
-                  {selectedAssessment.evidence_event_ids && selectedAssessment.evidence_event_ids.length > 0
-                    ? selectedAssessment.evidence_event_ids.join(', ')
-                    : 'None provided'}
-                </span>
-              </div>
-              <div>
-                <span className="font-bold text-warmGraphite">Scoring Explanation:</span>{' '}
-                <span>{selectedAssessment.scoring_explanation || 'Pending trainer verification'}</span>
-              </div>
+      {/* Create Assessment Modal */}
+      {isCreateModalOpen && (
+        <div className="hg-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsCreateModalOpen(false); }}>
+          <div className="hg-modal">
+            <div className="hg-modal-header">
+              <span className="hg-modal-title">Create Session Evaluation</span>
+              <button className="hg-close-btn" onClick={() => setIsCreateModalOpen(false)}>×</button>
             </div>
-
-            <form onSubmit={handleSubmitReview} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Trainer Comments / Verification Notes *
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Record qualitative feedback, observed probe technique, or reason for override..."
-                  value={reviewComments}
-                  onChange={(e) => setReviewComments(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                    Score Override
-                  </label>
+            <div className="hg-modal-body">
+              {createError && (
+                <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{createError}</div>
+              )}
+              <form id="create-assessment-form" onSubmit={handleCreateAssessment}>
+                <div className="hg-form-group">
+                  <label className="hg-label">Assessment ID *</label>
                   <input
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g. 85.0"
-                    value={overrideScore}
-                    onChange={(e) => setOverrideScore(e.target.value)}
-                    className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
+                    type="text"
+                    className="hg-input"
+                    required
+                    placeholder="e.g. EVAL-2026-001"
+                    style={{ fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}
+                    value={newAssessmentId}
+                    onChange={(e) => setNewAssessmentId(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                    Outcome Override
-                  </label>
-                  <select
-                    value={overrideOutcome}
-                    onChange={(e) => setOverrideOutcome(e.target.value)}
-                    className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  >
-                    <option value="competent">Competent</option>
-                    <option value="needs_improvement">Needs Improvement</option>
-                    <option value="not_assessable">Not Assessable</option>
-                  </select>
+                <div className="hg-form-group">
+                  <label className="hg-label">Session ID (numeric) *</label>
+                  <input
+                    type="number"
+                    className="hg-input"
+                    required
+                    placeholder="e.g. 42"
+                    value={newSessionId}
+                    onChange={(e) => setNewSessionId(e.target.value)}
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  />
                 </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-warmStone">
-                <button
-                  type="button"
-                  onClick={() => setSelectedAssessment(null)}
-                  className="px-4 py-2 text-sm text-warmGraphite hover:text-obsidian"
-                  disabled={isSubmittingReview}
-                >
-                  Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingReview}
-                  className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors disabled:opacity-50"
-                >
-                  {isSubmittingReview ? 'Logging...' : 'Save Trainer Review'}
-                </button>
-              </div>
-            </form>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="hg-form-group">
+                    <label className="hg-label">Rubric ID *</label>
+                    <select
+                      className="hg-input"
+                      value={newRubricId}
+                      onChange={(e) => setNewRubricId(e.target.value)}
+                    >
+                      <option value="RUBRIC-LEAK-V1">RUBRIC-LEAK-V1</option>
+                      {rubrics.filter((r) => r.rubric_id !== 'RUBRIC-LEAK-V1').map((r) => (
+                        <option key={r.id} value={r.rubric_id}>{r.rubric_id}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="hg-form-group">
+                    <label className="hg-label">Rubric Version</label>
+                    <input
+                      type="text"
+                      className="hg-input"
+                      placeholder="1.0"
+                      value={newRubricVersion}
+                      onChange={(e) => setNewRubricVersion(e.target.value)}
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    />
+                  </div>
+                </div>
+                <div className="hg-form-group">
+                  <label className="hg-label">Evidence Event IDs (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    placeholder="e.g. 101, 102, 105"
+                    value={newEvidenceIds}
+                    onChange={(e) => setNewEvidenceIds(e.target.value)}
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  />
+                </div>
+                <div className="hg-form-group" style={{ marginBottom: 0 }}>
+                  <label className="hg-label">Scoring Explanation</label>
+                  <textarea
+                    className="hg-input"
+                    placeholder="Describe the scoring rationale…"
+                    rows={3}
+                    value={newScoringExplanation}
+                    onChange={(e) => setNewScoringExplanation(e.target.value)}
+                    style={{ resize: 'vertical' }}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="hg-modal-footer">
+              <button className="hg-btn hg-btn-secondary" onClick={() => setIsCreateModalOpen(false)}>Cancel</button>
+              <button type="submit" form="create-assessment-form" className="hg-btn hg-btn-primary" disabled={isSubmittingNew}>
+                {isSubmittingNew ? (
+                  <><span className="hg-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Creating…</>
+                ) : (
+                  'Create Evaluation'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Create Evaluation Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-warmStone">
-            <h3 className="text-lg font-bold text-obsidian mb-1">Create Session Evaluation</h3>
-            <p className="text-xs text-warmGraphite mb-4">
-              Bind a recorded diagnostic run to a vocational assessment rubric.
-            </p>
-
-            {createError && (
-              <div className="bg-red-50 text-red-700 text-xs p-3 rounded mb-4 border border-red-200">
-                {createError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateAssessment} className="space-y-4">
+      {/* Trainer Review Modal */}
+      {selectedAssessment && (
+        <div className="hg-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setSelectedAssessment(null); }}>
+          <div className="hg-modal">
+            <div className="hg-modal-header">
               <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Evaluation ID *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. EVAL-2026-001"
-                  value={newAssessmentId}
-                  onChange={(e) => setNewAssessmentId(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  required
-                />
+                <div className="hg-modal-title">Trainer Review</div>
+                <div style={{ fontSize: 12, color: 'var(--color-warm-graphite)', marginTop: 2 }}>
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{selectedAssessment.assessment_id}</code>
+                  &nbsp;·&nbsp;{selectedAssessment.trainee_id}
+                </div>
+              </div>
+              <button className="hg-close-btn" onClick={() => setSelectedAssessment(null)}>×</button>
+            </div>
+            <div className="hg-modal-body">
+              {/* Current state */}
+              <div style={{
+                background: 'var(--color-ivory)',
+                border: '1px solid var(--color-warm-stone)',
+                borderRadius: 8,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                gap: 20,
+                fontSize: 12,
+              }}>
+                <div>
+                  <div style={{ color: 'var(--color-warm-graphite)', marginBottom: 2 }}>Current Score</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16 }}>
+                    {selectedAssessment.score != null ? `${selectedAssessment.score} / ${selectedAssessment.max_score ?? 100}` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--color-warm-graphite)', marginBottom: 2 }}>Current Outcome</div>
+                  {outcomeBadge(selectedAssessment.outcome)}
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                    Session ID *
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 1"
-                    value={newSessionId}
-                    onChange={(e) => setNewSessionId(e.target.value)}
-                    className="w-full px-3 py-2 border border-warmStone rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burntOrange"
+              {reviewError && (
+                <div className="hg-alert hg-alert-error" style={{ marginBottom: 12 }}>{reviewError}</div>
+              )}
+              {reviewSuccess && (
+                <div className="hg-alert hg-alert-success" style={{ marginBottom: 12 }}>{reviewSuccess}</div>
+              )}
+
+              <form id="review-form" onSubmit={handleSubmitReview}>
+                <div className="hg-form-group">
+                  <label className="hg-label">Trainer Comments *</label>
+                  <textarea
+                    className="hg-input"
                     required
+                    placeholder="Provide detailed feedback and reasoning for any score override…"
+                    rows={4}
+                    style={{ resize: 'vertical' }}
+                    value={reviewComments}
+                    onChange={(e) => setReviewComments(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                    Rubric ID *
-                  </label>
-                  <select
-                    value={newRubricId}
-                    onChange={(e) => {
-                      setNewRubricId(e.target.value);
-                      const matching = rubrics.find((r) => r.rubric_id === e.target.value);
-                      if (matching) setNewRubricVersion(matching.version);
-                    }}
-                    className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  >
-                    {rubrics.length > 0 ? (
-                      rubrics.map((r) => (
-                        <option key={r.id} value={r.rubric_id}>
-                          {r.rubric_id}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="RUBRIC-LEAK-V1">RUBRIC-LEAK-V1</option>
-                    )}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="hg-form-group" style={{ marginBottom: 0 }}>
+                    <label className="hg-label">Override Score</label>
+                    <input
+                      type="number"
+                      className="hg-input"
+                      placeholder="Leave blank to keep"
+                      value={overrideScore}
+                      onChange={(e) => setOverrideScore(e.target.value)}
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    />
+                  </div>
+                  <div className="hg-form-group" style={{ marginBottom: 0 }}>
+                    <label className="hg-label">Override Outcome</label>
+                    <select
+                      className="hg-input"
+                      value={overrideOutcome}
+                      onChange={(e) => setOverrideOutcome(e.target.value)}
+                    >
+                      <option value="">Keep current</option>
+                      <option value="competent">Competent</option>
+                      <option value="needs_improvement">Needs Improvement</option>
+                      <option value="not_assessable">Not Assessable</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                    Version
-                  </label>
-                  <input
-                    type="text"
-                    value={newRubricVersion}
-                    onChange={(e) => setNewRubricVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-warmStone rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Evidence Event IDs (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 101, 104, 108"
-                  value={newEvidenceIds}
-                  onChange={(e) => setNewEvidenceIds(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1 uppercase tracking-wider">
-                  Scoring Explanation / Scope
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Ultrasonic acoustic pipe inspection trial run"
-                  value={newScoringExplanation}
-                  onChange={(e) => setNewScoringExplanation(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-warmStone">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 text-sm text-warmGraphite hover:text-obsidian"
-                  disabled={isSubmittingNew}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingNew}
-                  className="px-4 py-2 text-sm font-medium bg-burntOrange text-white rounded hover:bg-darkBurntOrange transition-colors disabled:opacity-50"
-                >
-                  {isSubmittingNew ? 'Creating...' : 'Initialize Evaluation'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div className="hg-modal-footer">
+              <button className="hg-btn hg-btn-secondary" onClick={() => setSelectedAssessment(null)}>Cancel</button>
+              <button type="submit" form="review-form" className="hg-btn hg-btn-primary" disabled={isSubmittingReview}>
+                {isSubmittingReview ? (
+                  <><span className="hg-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Submitting…</>
+                ) : (
+                  'Submit Review'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

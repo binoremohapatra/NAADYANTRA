@@ -14,7 +14,7 @@ function Overview() {
 
   useEffect(() => {
     loadOverview();
-    const interval = setInterval(loadOverview, 10000);
+    const interval = setInterval(loadOverview, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -22,7 +22,6 @@ function Overview() {
     try {
       setError('');
 
-      // Check API readiness and system info
       try {
         const ready = await apiClient.readyCheck();
         setApiStatus('healthy');
@@ -32,14 +31,12 @@ function Overview() {
         setDbStatus('error');
       }
 
-      // Load overview data
       const data = await apiClient.getDashboardOverview();
       setOverview(data);
       if (data.server_utc) {
         setServerUtc(new Date(data.server_utc).toLocaleTimeString());
       }
 
-      // Load recorded alerts count
       const alertsCount = await apiClient.getRecordedAlertsCount();
       setActiveAlertsCount(alertsCount);
 
@@ -52,127 +49,210 @@ function Overview() {
   };
 
   if (isLoading) {
-    return <div className="text-warmGraphite py-8">Loading operational overview...</div>;
+    return (
+      <div className="hg-loading-screen">
+        <div className="hg-spinner" />
+        <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>
+          Loading operational overview…
+        </span>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">
+      <div className="hg-alert hg-alert-error" style={{ maxWidth: 480 }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M8 5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="8" cy="11" r="0.75" fill="currentColor"/>
+        </svg>
         {error}
       </div>
     );
   }
 
   if (!overview) {
-    return <div className="text-warmGraphite py-8">No data available from backend.</div>;
+    return (
+      <div className="hg-empty">
+        <div className="hg-empty-icon">📡</div>
+        <p className="hg-empty-title">No data available</p>
+        <p className="hg-empty-desc">Backend is not returning overview data.</p>
+      </div>
+    );
   }
+
+  const onlineCount = overview.online_devices_count ?? overview.active_devices_count;
+  const offlineCount = overview.offline_devices_count ?? (overview.total_devices - overview.active_devices_count);
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      {/* Page header */}
+      <div className="hg-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-obsidian">Operational Overview</h2>
-          <p className="text-sm text-warmGraphite">
-            Canonical telemetry, device connectivity & training session aggregation
+          <h1 className="hg-page-title">Operational Overview</h1>
+          <p className="hg-page-subtitle">
+            Live telemetry, device connectivity &amp; training aggregation
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* API & DB Status Pills */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-warmStone text-xs">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                apiStatus === 'healthy' ? 'bg-alertOk' : 'bg-alertDanger'
-              }`}
-            />
-            <span className="text-warmGraphite">
-              Backend: <strong className="text-obsidian">{apiStatus === 'healthy' ? 'Healthy' : 'Offline'}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Status pills */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'var(--color-white)',
+            border: '1px solid var(--color-warm-stone)',
+            borderRadius: 99,
+            padding: '6px 14px',
+            fontSize: 12,
+          }}>
+            <span className={`hg-dot ${apiStatus === 'healthy' ? 'hg-dot-ok hg-dot-pulse' : 'hg-dot-danger'}`} />
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Backend&nbsp;
+              <strong style={{ color: 'var(--color-carbon)' }}>
+                {apiStatus === 'healthy' ? 'Healthy' : 'Offline'}
+              </strong>
             </span>
-            <span className="text-warmStone">|</span>
-            <span className="text-warmGraphite">
-              DB: <strong className="text-obsidian">{dbStatus}</strong>
+            <span style={{ color: 'var(--color-warm-stone)' }}>|</span>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              DB&nbsp;<strong style={{ color: 'var(--color-carbon)' }}>{dbStatus}</strong>
             </span>
           </div>
 
           {serverUtc && (
-            <span className="text-xs text-warmGraphite font-mono bg-white px-2.5 py-1.5 rounded border border-warmStone">
-              Server UTC: {serverUtc}
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: 'var(--color-warm-graphite)',
+              background: 'var(--color-white)',
+              border: '1px solid var(--color-warm-stone)',
+              borderRadius: 6,
+              padding: '5px 10px',
+            }}>
+              {serverUtc} UTC
             </span>
           )}
 
           {lastRefresh && (
-            <span className="text-xs text-warmGraphite">
-              Refreshed: {lastRefresh.toLocaleTimeString()}
+            <span style={{ fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+              Updated {lastRefresh.toLocaleTimeString()}
             </span>
           )}
 
-          <button
-            onClick={loadOverview}
-            className="px-3 py-1.5 text-xs bg-white border border-warmStone rounded hover:bg-softSand text-obsidian font-medium transition-colors"
-          >
-            Refresh Now
+          <button className="hg-btn hg-btn-secondary" onClick={loadOverview}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Refresh
           </button>
         </div>
       </div>
 
-      {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {/* Total Registered Devices */}
-        <div className="bg-white rounded-lg shadow p-5 border border-warmStone">
-          <h3 className="text-xs font-semibold uppercase text-warmGraphite tracking-wider mb-2">
-            Registered Devices
-          </h3>
-          <p className="text-3xl font-bold text-obsidian">{overview.total_devices}</p>
-          <div className="mt-2 text-xs text-warmGraphite flex justify-between">
-            <span>Online: <strong className="text-alertOk">{overview.online_devices_count ?? overview.active_devices_count}</strong></span>
-            <span>Offline: <strong>{overview.offline_devices_count ?? (overview.total_devices - overview.active_devices_count)}</strong></span>
+      {/* Metric Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 16,
+        marginBottom: 24,
+      }}>
+        {/* Devices */}
+        <div className="hg-metric-card accent-orange">
+          <div className="hg-metric-label">Registered Devices</div>
+          <div className="hg-metric-value">{overview.total_devices}</div>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Online&nbsp;<strong style={{ color: 'var(--color-alert-ok)' }}>{onlineCount}</strong>
+            </span>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Offline&nbsp;<strong>{offlineCount}</strong>
+            </span>
           </div>
         </div>
 
-        {/* Telemetry Health */}
-        <div className="bg-white rounded-lg shadow p-5 border border-warmStone">
-          <h3 className="text-xs font-semibold uppercase text-warmGraphite tracking-wider mb-2">
-            Telemetry Freshness
-          </h3>
-          <p className="text-3xl font-bold text-alertOk">
-            {overview.online_devices_count ?? overview.active_devices_count}
-          </p>
-          <div className="mt-2 text-xs text-warmGraphite flex justify-between">
-            <span>Stale: <strong className="text-alertCaution">{overview.stale_devices_count ?? 0}</strong></span>
-            <span>No data: <strong>{overview.never_reported_count ?? 0}</strong></span>
+        {/* Telemetry freshness */}
+        <div className="hg-metric-card accent-ok">
+          <div className="hg-metric-label">Telemetry Freshness</div>
+          <div className="hg-metric-value" style={{ color: 'var(--color-alert-ok)' }}>
+            {onlineCount}
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Stale&nbsp;<strong style={{ color: 'var(--color-alert-caution)' }}>
+                {overview.stale_devices_count ?? 0}
+              </strong>
+            </span>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              No data&nbsp;<strong>{overview.never_reported_count ?? 0}</strong>
+            </span>
           </div>
         </div>
 
-        {/* Total Sessions */}
-        <div className="bg-white rounded-lg shadow p-5 border border-warmStone">
-          <h3 className="text-xs font-semibold uppercase text-warmGraphite tracking-wider mb-2">
-            Training Sessions
-          </h3>
-          <p className="text-3xl font-bold text-obsidian">{overview.total_sessions}</p>
-          <div className="mt-2 text-xs text-warmGraphite flex justify-between">
-            <span>Last 24h: <strong className="text-burntOrange">{overview.recent_sessions_count}</strong></span>
-            <span>Trainees: <strong>{overview.total_trainees}</strong></span>
+        {/* Training sessions */}
+        <div className="hg-metric-card accent-orange">
+          <div className="hg-metric-label">Training Sessions</div>
+          <div className="hg-metric-value">{overview.total_sessions}</div>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Last 24h&nbsp;<strong style={{ color: 'var(--color-burnt-orange)' }}>
+                {overview.recent_sessions_count}
+              </strong>
+            </span>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Trainees&nbsp;<strong>{overview.total_trainees}</strong>
+            </span>
           </div>
         </div>
 
-        {/* Recorded Events & Alerts */}
-        <div className="bg-white rounded-lg shadow p-5 border border-warmStone">
-          <h3 className="text-xs font-semibold uppercase text-warmGraphite tracking-wider mb-2">
-            Recorded Hazards & Alerts
-          </h3>
-          <p className="text-3xl font-bold text-alertDanger">{activeAlertsCount}</p>
-          <div className="mt-2 text-xs text-warmGraphite flex justify-between">
-            <span>Total Events: <strong>{overview.total_events}</strong></span>
-            <span>Failures: <strong>{overview.recent_ingestion_failures_count ?? 0}</strong></span>
+        {/* Alerts */}
+        <div className="hg-metric-card accent-danger">
+          <div className="hg-metric-label">Recorded Hazard Alerts</div>
+          <div className="hg-metric-value" style={{ color: 'var(--color-alert-danger)' }}>
+            {activeAlertsCount}
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Total Events&nbsp;<strong>{overview.total_events}</strong>
+            </span>
+            <span style={{ color: 'var(--color-warm-graphite)' }}>
+              Failures&nbsp;<strong>{overview.recent_ingestion_failures_count ?? 0}</strong>
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Information Banner */}
-      <div className="bg-white rounded-lg p-5 border border-warmStone text-sm text-warmGraphite">
-        <h4 className="font-semibold text-obsidian mb-1">Single Source of Truth Architecture</h4>
-        <p className="text-xs leading-relaxed">
-          The Admin Console reads exclusively from the deployed backend database. Connectivity state reflects real authenticated sensor contact thresholds (5 minutes), while telemetry freshness reflects actual sensor measurement delivery.
-        </p>
+      {/* Status info */}
+      <div className="hg-card">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: 'rgba(240,120,66,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="7" stroke="var(--color-burnt-orange)" strokeWidth="1.5"/>
+              <path d="M8 5v3.5" stroke="var(--color-burnt-orange)" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="8" cy="11.5" r="0.75" fill="var(--color-burnt-orange)"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-carbon)', marginBottom: 4 }}>
+              Single Source of Truth Architecture
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--color-warm-graphite)', margin: 0, lineHeight: 1.7 }}>
+              The Admin Console reads exclusively from the deployed backend database.
+              Connectivity state reflects real authenticated sensor contact thresholds (5 min),
+              while telemetry freshness reflects actual sensor measurement delivery via the
+              NAADYANTRA ESP32 firmware pipeline.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

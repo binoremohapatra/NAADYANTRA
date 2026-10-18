@@ -11,7 +11,7 @@ function Devices() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
 
-  // Register Device Modal state
+  // Register Device Modal
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [newDeviceId, setNewDeviceId] = useState('');
   const [newDeviceName, setNewDeviceName] = useState('');
@@ -64,199 +64,198 @@ function Devices() {
     }
   };
 
-  const filteredDevices =
-    devices?.items.filter((device) => {
-      if (filter === 'all') return true;
-      const isOnline = device.is_online ?? false;
-      if (filter === 'online') return isOnline;
-      if (filter === 'offline') return !isOnline;
-      return true;
-    }) || [];
+  const filteredDevices = devices?.items.filter((device) => {
+    if (filter === 'all') return true;
+    if (filter === 'online') return device.is_online ?? false;
+    if (filter === 'offline') return !(device.is_online ?? false);
+    return true;
+  }) || [];
 
   const formatLastSeen = (lastSeen: string | null) => {
     if (!lastSeen) return 'Never';
-    const date = new Date(lastSeen);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+    const diffMins = Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60000);
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
+    return new Date(lastSeen).toLocaleDateString();
   };
+
+  const totalPages = Math.max(1, Math.ceil((devices?.total ?? 0) / 50));
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="hg-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-obsidian">Device Inventory</h2>
-          <p className="text-sm text-warmGraphite">
-            Registered sensing wearables and diagnostic hardware units
-          </p>
+          <h1 className="hg-page-title">Device Inventory</h1>
+          <p className="hg-page-subtitle">Registered ESP32 sensing wearables and diagnostic hardware</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="px-4 py-2 bg-burntOrange text-white text-sm font-semibold rounded hover:bg-darkBurntOrange transition-colors"
-          >
-            + Register Device
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="hg-btn hg-btn-primary" onClick={() => setShowRegisterModal(true)}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Register Device
           </button>
-          <button
-            onClick={loadDevices}
-            className="px-3 py-2 text-sm bg-white border border-warmStone rounded hover:bg-softSand text-obsidian font-medium transition-colors"
-          >
+          <button className="hg-btn hg-btn-secondary" onClick={loadDevices}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M11 2.5A5.5 5.5 0 1 0 12 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M9 0v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             Refresh
           </button>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 border border-warmStone">
-        <div className="flex flex-col md:flex-row gap-4">
-          <input
-            type="text"
-            placeholder="Search by device ID or name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 px-3 py-2 border border-warmStone rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-md text-xs font-semibold transition-colors ${
-                filter === 'all'
-                  ? 'bg-burntOrange text-white'
-                  : 'bg-warmStone text-warmGraphite hover:bg-softSand'
-              }`}
-            >
-              All ({devices?.total ?? 0})
-            </button>
-            <button
-              onClick={() => setFilter('online')}
-              className={`px-4 py-2 rounded-md text-xs font-semibold transition-colors ${
-                filter === 'online'
-                  ? 'bg-burntOrange text-white'
-                  : 'bg-warmStone text-warmGraphite hover:bg-softSand'
-              }`}
-            >
-              Online
-            </button>
-            <button
-              onClick={() => setFilter('offline')}
-              className={`px-4 py-2 rounded-md text-xs font-semibold transition-colors ${
-                filter === 'offline'
-                  ? 'bg-burntOrange text-white'
-                  : 'bg-warmStone text-warmGraphite hover:bg-softSand'
-              }`}
-            >
-              Offline
-            </button>
+      <div className="hg-card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="hg-label">Search</label>
+            <input
+              type="text"
+              className="hg-input"
+              placeholder="Search by device ID or name…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+          <div>
+            <label className="hg-label">Status</label>
+            <div className="hg-tabs">
+              {(['all', 'online', 'offline'] as const).map((f) => (
+                <button
+                  key={f}
+                  className={`hg-tab${filter === f ? ' active' : ''}`}
+                  onClick={() => { setFilter(f); setPage(1); }}
+                >
+                  {f === 'all' ? `All (${devices?.total ?? 0})` : f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-warmGraphite py-8 text-center">Loading device inventory...</div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">
-          {error}
+      {isLoading && (
+        <div className="hg-loading-screen">
+          <div className="hg-spinner" />
+          <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>Loading device inventory…</span>
         </div>
-      ) : filteredDevices.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 border border-warmStone text-center text-warmGraphite">
-          No matching devices found.
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow border border-warmStone overflow-hidden">
-          <table className="min-w-full divide-y divide-warmStone">
-            <thead className="bg-warmStone">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Device ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Last Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Firmware
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-warmGraphite uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-warmStone">
-              {filteredDevices.map((device) => (
-                <tr key={device.id} className="hover:bg-softSand/30 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-obsidian">
-                    <Link
-                      to={`/devices/${device.device_id}`}
-                      className="hover:text-burntOrange hover:underline"
-                    >
-                      {device.device_id}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {device.name || 'Unnamed Device'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        device.is_online
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {device.is_online ? '● Online' : '○ Offline'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite">
-                    {formatLastSeen(device.last_seen_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-warmGraphite font-mono text-xs">
-                    {device.firmware_version || 'Not reported'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <Link
-                      to={`/devices/${device.device_id}`}
-                      className="text-burntOrange hover:text-darkBurntOrange font-semibold text-xs"
-                    >
-                      Inspect Details →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
 
-          {/* Pagination */}
-          <div className="px-6 py-4 bg-white border-t border-warmStone flex items-center justify-between">
-            <span className="text-sm text-warmGraphite">
-              Total {devices?.total ?? 0} registered devices
+      {error && !isLoading && (
+        <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>{error}</div>
+      )}
+
+      {!isLoading && !error && filteredDevices.length === 0 && (
+        <div className="hg-card">
+          <div className="hg-empty">
+            <div className="hg-empty-icon">📡</div>
+            <p className="hg-empty-title">No matching devices</p>
+            <p className="hg-empty-desc">
+              {devices?.total === 0
+                ? 'No devices registered yet. Click "Register Device" to add one.'
+                : 'No devices match the current search and filter.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && filteredDevices.length > 0 && (
+        <div className="hg-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="hg-table">
+              <thead>
+                <tr>
+                  <th>Device ID</th>
+                  <th>Name / Label</th>
+                  <th>Status</th>
+                  <th>Last Contact</th>
+                  <th>Firmware</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDevices.map((device) => (
+                  <tr key={device.id}>
+                    <td>
+                      <Link
+                        to={`/devices/${device.device_id}`}
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 600,
+                          color: 'var(--color-burnt-orange)',
+                          textDecoration: 'none',
+                          fontSize: 13,
+                        }}
+                      >
+                        {device.device_id}
+                      </Link>
+                    </td>
+                    <td style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>
+                      {device.name || <span style={{ opacity: 0.5 }}>Unnamed</span>}
+                    </td>
+                    <td>
+                      {device.is_online ? (
+                        <span className="hg-badge hg-badge-ok">
+                          <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
+                          Online
+                        </span>
+                      ) : (
+                        <span className="hg-badge hg-badge-neutral">
+                          <span className="hg-dot hg-dot-neutral" style={{ width: 6, height: 6 }} />
+                          Offline
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+                        {formatLastSeen(device.last_seen_at)}
+                      </span>
+                    </td>
+                    <td>
+                      {device.firmware_version ? (
+                        <code className="hg-code">{device.firmware_version}</code>
+                      ) : (
+                        <span style={{ color: 'var(--color-soft-sand)', fontSize: 12 }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link
+                        to={`/devices/${device.device_id}`}
+                        className="hg-btn hg-btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: 12, textDecoration: 'none' }}
+                      >
+                        Inspect →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="hg-pagination" style={{ padding: '12px 20px' }}>
+            <span style={{ fontSize: 13, color: 'var(--color-warm-graphite)' }}>
+              {devices?.total ?? 0} total device{(devices?.total ?? 0) !== 1 ? 's' : ''} · Page {page}/{totalPages}
             </span>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 6 }}>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
               >
-                Previous
+                ← Prev
               </button>
-              <span className="px-3 py-1 text-sm text-warmGraphite">
-                Page {page} of {Math.max(1, Math.ceil((devices?.total ?? 0) / 50))}
-              </span>
               <button
+                className="hg-btn hg-btn-secondary"
+                style={{ padding: '6px 12px' }}
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page * 50 >= (devices?.total ?? 0)}
-                className="px-3 py-1 text-sm border border-warmStone rounded disabled:opacity-40"
+                disabled={page >= totalPages}
               >
-                Next
+                Next →
               </button>
             </div>
           </div>
@@ -265,78 +264,87 @@ function Devices() {
 
       {/* Register Device Modal */}
       {showRegisterModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-warmStone">
-            <h3 className="text-lg font-bold text-obsidian mb-2">Register New Sensing Device</h3>
-            <p className="text-xs text-warmGraphite mb-4">
-              Authorize a new ESP32 wearable unit. The device key must match the X-Device-Key header in firmware.
-            </p>
+        <div className="hg-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowRegisterModal(false); }}>
+          <div className="hg-modal">
+            <div className="hg-modal-header">
+              <span className="hg-modal-title">Register New Sensing Device</span>
+              <button className="hg-close-btn" onClick={() => setShowRegisterModal(false)}>×</button>
+            </div>
+            <div className="hg-modal-body">
+              <p style={{ fontSize: 13, color: 'var(--color-warm-graphite)', margin: '0 0 16px' }}>
+                Authorize a new ESP32 wearable unit. The device key must match the
+                <code className="hg-code" style={{ margin: '0 4px' }}>X-Device-Key</code>
+                header in firmware.
+              </p>
 
-            {registerError && (
-              <div className="mb-4 p-2 bg-red-50 text-red-700 text-xs rounded border border-red-200">
-                {registerError}
-              </div>
-            )}
+              {registerError && (
+                <div className="hg-alert hg-alert-error" style={{ marginBottom: 16 }}>
+                  {registerError}
+                </div>
+              )}
 
-            <form onSubmit={handleRegisterDevice} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1">
-                  Device ID *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. SIH-DEV-02"
-                  value={newDeviceId}
-                  onChange={(e) => setNewDeviceId(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                />
-              </div>
+              <form id="register-device-form" onSubmit={handleRegisterDevice}>
+                <div className="hg-form-group">
+                  <label className="hg-label">Device ID *</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    required
+                    placeholder="e.g. SIH-DEV-02"
+                    value={newDeviceId}
+                    onChange={(e) => setNewDeviceId(e.target.value)}
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1">
-                  Device Name / Label
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Workshop Station 2 Wearable"
-                  value={newDeviceName}
-                  onChange={(e) => setNewDeviceName(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange"
-                />
-              </div>
+                <div className="hg-form-group">
+                  <label className="hg-label">Name / Label</label>
+                  <input
+                    type="text"
+                    className="hg-input"
+                    placeholder="e.g. Workshop Station 2 Wearable"
+                    value={newDeviceName}
+                    onChange={(e) => setNewDeviceName(e.target.value)}
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-warmGraphite mb-1">
-                  Device Authentication Key *
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Secure shared secret"
-                  value={newDeviceKey}
-                  onChange={(e) => setNewDeviceKey(e.target.value)}
-                  className="w-full px-3 py-2 border border-warmStone rounded text-sm focus:outline-none focus:ring-2 focus:ring-burntOrange font-mono"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterModal(false)}
-                  className="px-4 py-2 border border-warmStone text-warmGraphite text-xs font-medium rounded hover:bg-softSand"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isRegistering}
-                  className="px-4 py-2 bg-burntOrange text-white text-xs font-semibold rounded hover:bg-darkBurntOrange disabled:opacity-50"
-                >
-                  {isRegistering ? 'Registering...' : 'Save & Register'}
-                </button>
-              </div>
-            </form>
+                <div className="hg-form-group" style={{ marginBottom: 0 }}>
+                  <label className="hg-label">Authentication Key *</label>
+                  <input
+                    type="password"
+                    className="hg-input"
+                    required
+                    placeholder="Secure shared secret"
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                    value={newDeviceKey}
+                    onChange={(e) => setNewDeviceKey(e.target.value)}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="hg-modal-footer">
+              <button
+                type="button"
+                className="hg-btn hg-btn-secondary"
+                onClick={() => setShowRegisterModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="register-device-form"
+                className="hg-btn hg-btn-primary"
+                disabled={isRegistering}
+              >
+                {isRegistering ? (
+                  <>
+                    <span className="hg-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                    Registering…
+                  </>
+                ) : (
+                  'Save & Register'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

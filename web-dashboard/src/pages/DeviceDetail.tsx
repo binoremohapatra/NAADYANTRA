@@ -3,6 +3,30 @@ import { useParams, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import type { Device, DeviceStatus, LatestTelemetryResponse, Event } from '../types';
 
+function MetricBlock({ label, value, unit, accent }: {
+  label: string;
+  value: string | React.ReactNode;
+  unit?: string;
+  accent?: string;
+}) {
+  return (
+    <div style={{
+      background: 'var(--color-ivory)',
+      border: '1px solid var(--color-warm-stone)',
+      borderRadius: 8,
+      padding: '14px 16px',
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-warm-graphite)', marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: accent || 'var(--color-carbon)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.01em' }}>
+        {value}
+        {unit && <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-warm-graphite)', marginLeft: 4 }}>{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
 function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
 
@@ -13,24 +37,18 @@ function DeviceDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Key rotation modal state
   const [isRotatingKey, setIsRotatingKey] = useState(false);
   const [issuedKey, setIssuedKey] = useState<string | null>(null);
   const [rotationMessage, setRotationMessage] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    if (deviceId) {
-      loadDeviceData();
-    }
+    if (deviceId) loadDeviceData();
   }, [deviceId]);
 
-  // Polling for live telemetry every 5 seconds
   useEffect(() => {
     if (!deviceId) return;
-    const interval = setInterval(() => {
-      fetchLatestTelemetry(deviceId);
-    }, 5000);
+    const interval = setInterval(() => fetchLatestTelemetry(deviceId), 5000);
     return () => clearInterval(interval);
   }, [deviceId]);
 
@@ -39,7 +57,7 @@ function DeviceDetail() {
       const tel = await apiClient.getLatestTelemetry(id);
       setTelemetry(tel);
     } catch {
-      // Keep existing state on transient poll failure
+      // keep existing on transient poll failure
     }
   };
 
@@ -67,9 +85,7 @@ function DeviceDetail() {
 
   const handleRotateKey = async () => {
     if (!deviceId) return;
-    if (!confirm('Are you sure you want to rotate the credential for this device? The old key will immediately be revoked.')) {
-      return;
-    }
+    if (!confirm('Rotate credential for this device? The old key will be immediately revoked.')) return;
     try {
       setIsRotatingKey(true);
       const res = await apiClient.rotateDeviceKey(deviceId);
@@ -84,9 +100,7 @@ function DeviceDetail() {
 
   const handleDeactivate = async () => {
     if (!deviceId) return;
-    if (!confirm('Are you sure you want to deactivate this device? It will no longer be permitted to ingest telemetry.')) {
-      return;
-    }
+    if (!confirm('Deactivate this device? It will no longer be permitted to ingest telemetry.')) return;
     try {
       await apiClient.deactivateDevice(deviceId);
       await loadDeviceData();
@@ -101,52 +115,65 @@ function DeviceDetail() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const formatTimestamp = (timestamp?: string | null) => {
-    if (!timestamp) return 'Never';
-    return new Date(timestamp).toLocaleString();
+  const fmt = (ts?: string | null) => ts ? new Date(ts).toLocaleString() : '—';
+  const alertColor = (level: string | null) => {
+    if (level === 'DANGER') return 'var(--color-alert-danger)';
+    if (level === 'CAUTION') return 'var(--color-alert-caution)';
+    return 'var(--color-alert-ok)';
   };
 
   if (isLoading) {
-    return <div className="text-warmGraphite py-8">Loading device details...</div>;
-  }
-
-  if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-6">
-        {error}
+      <div className="hg-loading-screen">
+        <div className="hg-spinner" />
+        <span style={{ color: 'var(--color-warm-graphite)', fontSize: 13 }}>Loading device details…</span>
       </div>
     );
   }
 
-  if (!device || !status) {
-    return <div className="text-warmGraphite">Device not found</div>;
+  if (error) {
+    return <div className="hg-alert hg-alert-error" style={{ maxWidth: 480 }}>{error}</div>;
   }
+
+  if (!device || !status) {
+    return (
+      <div className="hg-empty">
+        <div className="hg-empty-icon">📡</div>
+        <p className="hg-empty-title">Device not found</p>
+      </div>
+    );
+  }
+
+  const ev = telemetry?.event;
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <Link to="/devices" className="text-burntOrange hover:text-darkBurntOrange font-medium text-sm">
-          ← Back to Device Inventory
+      {/* Breadcrumb + Actions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <Link
+          to="/devices"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+            color: 'var(--color-burnt-orange)', textDecoration: 'none', fontWeight: 500,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Device Inventory
         </Link>
-        <div className="flex gap-3">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="hg-btn hg-btn-secondary" onClick={loadDeviceData} style={{ fontSize: 12 }}>Refresh</button>
           <button
-            onClick={loadDeviceData}
-            className="px-3 py-1.5 text-xs bg-white border border-warmStone rounded hover:bg-softSand text-obsidian font-medium transition-colors"
-          >
-            Refresh
-          </button>
-          <button
+            className="hg-btn hg-btn-primary"
             onClick={handleRotateKey}
             disabled={isRotatingKey}
-            className="px-3 py-1.5 text-xs bg-burntOrange text-white font-medium rounded hover:bg-darkBurntOrange transition-colors"
+            style={{ fontSize: 12 }}
           >
-            Rotate Credential
+            {isRotatingKey ? <><span className="hg-spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Rotating…</> : 'Rotate Credential'}
           </button>
           {device.is_active && (
-            <button
-              onClick={handleDeactivate}
-              className="px-3 py-1.5 text-xs border border-red-300 text-red-700 rounded hover:bg-red-50 font-medium transition-colors"
-            >
+            <button className="hg-btn hg-btn-danger" onClick={handleDeactivate} style={{ fontSize: 12 }}>
               Deactivate
             </button>
           )}
@@ -154,196 +181,164 @@ function DeviceDetail() {
       </div>
 
       {/* Device Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-obsidian">{device.device_id}</h2>
-        <span
-          className={`px-3 py-1 text-xs font-semibold rounded-full ${
-            status.is_online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-          }`}
-        >
-          {status.is_online ? '● Online (Contacted)' : '○ Offline'}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        <h1 className="hg-page-title" style={{ margin: 0 }}>
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 22 }}>{device.device_id}</code>
+        </h1>
+        {status.is_online ? (
+          <span className="hg-badge hg-badge-ok">
+            <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
+            Online
+          </span>
+        ) : (
+          <span className="hg-badge hg-badge-neutral">Offline</span>
+        )}
         {!device.is_active && (
-          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-            Deactivated
+          <span className="hg-badge hg-badge-danger">Deactivated</span>
+        )}
+        {device.name && (
+          <span style={{ fontSize: 14, color: 'var(--color-warm-graphite)', fontWeight: 500 }}>
+            {device.name}
           </span>
         )}
       </div>
 
-      {/* Live Telemetry Freshness Card */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6 border border-warmStone">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-obsidian">Live Ingested Telemetry</h3>
+      {/* Live Telemetry */}
+      <div className="hg-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-carbon)' }}>
+            Live Ingested Telemetry
+          </div>
           {telemetry && (
-            <span
-              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                !telemetry.has_data
-                  ? 'bg-gray-100 text-gray-700'
-                  : telemetry.is_stale
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
-              }`}
-            >
+            <span className={`hg-badge ${!telemetry.has_data ? 'hg-badge-neutral' : telemetry.is_stale ? 'hg-badge-caution' : 'hg-badge-ok'}`}>
               {!telemetry.has_data
-                ? 'No Telemetry Recorded'
+                ? 'No telemetry'
                 : telemetry.is_stale
-                ? `Stale (${telemetry.staleness_seconds}s ago)`
-                : `Live Fresh (${telemetry.staleness_seconds}s ago)`}
+                ? `Stale · ${telemetry.staleness_seconds}s ago`
+                : `Live · ${telemetry.staleness_seconds}s ago`}
             </span>
           )}
         </div>
 
-        {telemetry && telemetry.event ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-softSand/20 p-4 rounded-lg border border-warmStone">
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Acoustic RMS</p>
-              <p className="text-xl font-bold text-obsidian">
-                {telemetry.event.rms != null ? telemetry.event.rms.toFixed(1) : '—'}
-                <span className="text-xs font-normal text-warmGraphite ml-1">counts</span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Gas Delta (ADC)</p>
-              <p className="text-xl font-bold text-obsidian">
-                {telemetry.event.gas_delta != null ? telemetry.event.gas_delta : '—'}
-                <span className="text-xs font-normal text-warmGraphite ml-1">Δ counts</span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Moisture / Wet</p>
-              <p className="text-xl font-bold text-obsidian">
-                {telemetry.event.wet === true ? (
-                  <span className="text-alertDanger">WET (Detected)</span>
-                ) : telemetry.event.wet === false ? (
-                  <span className="text-alertOk">DRY (Normal)</span>
-                ) : (
-                  'Not fitted'
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Alert Level</p>
-              <p className="text-xl font-bold">
-                <span
-                  className={
-                    telemetry.event.alert === 'DANGER'
-                      ? 'text-alertDanger'
-                      : telemetry.event.alert === 'CAUTION'
-                      ? 'text-alertCaution'
-                      : 'text-alertOk'
-                  }
-                >
-                  {telemetry.event.alert || 'NORMAL'}
-                </span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Temperature</p>
-              <p className="text-sm font-semibold text-obsidian">
-                {telemetry.event.temperature != null ? `${telemetry.event.temperature}°C` : 'Disabled in FW'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Gas Ratio (Rs/R0)</p>
-              <p className="text-sm font-semibold text-obsidian">
-                {telemetry.event.gas_ratio != null ? telemetry.event.gas_ratio.toFixed(2) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Detection Cause</p>
-              <p className="text-sm font-semibold text-obsidian">
-                {telemetry.event.cause || 'ambient_baseline'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-warmGraphite uppercase font-medium">Server Ingested At</p>
-              <p className="text-xs text-warmGraphite">
-                {formatTimestamp(telemetry.event.server_timestamp)}
-              </p>
-            </div>
+        {ev ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+            <MetricBlock label="Acoustic RMS" value={ev.rms != null ? ev.rms.toFixed(1) : '—'} unit="counts" />
+            <MetricBlock label="Gas Δ (ADC)" value={ev.gas_delta != null ? String(ev.gas_delta) : '—'} unit="Δ cts" />
+            <MetricBlock label="Gas Ratio Rs/R0" value={ev.gas_ratio != null ? ev.gas_ratio.toFixed(3) : '—'} />
+            <MetricBlock
+              label="Moisture"
+              value={ev.wet === true ? 'WET' : ev.wet === false ? 'DRY' : '—'}
+              accent={ev.wet === true ? 'var(--color-alert-danger)' : ev.wet === false ? 'var(--color-alert-ok)' : undefined}
+            />
+            <MetricBlock label="Temperature" value={ev.temperature != null ? `${ev.temperature}°C` : '—'} />
+            <MetricBlock label="UV Delta" value={ev.uv_delta != null ? String(ev.uv_delta) : '—'} />
+            <MetricBlock
+              label="Alert Level"
+              value={ev.alert || 'NORMAL'}
+              accent={alertColor(ev.alert)}
+            />
+            <MetricBlock label="Cause" value={ev.cause || 'ambient'} />
+            <MetricBlock
+              label="ML Label"
+              value={ev.model_label || '—'}
+              accent={ev.model_label ? 'var(--color-burnt-orange)' : undefined}
+            />
+            <MetricBlock
+              label="Leak P"
+              value={ev.leak_probability != null ? `${(ev.leak_probability * 100).toFixed(1)}%` : '—'}
+              accent={ev.leak_probability != null && ev.leak_probability > 0.5 ? 'var(--color-alert-danger)' : undefined}
+            />
           </div>
         ) : (
-          <div className="p-4 bg-gray-50 border border-warmStone rounded text-sm text-warmGraphite text-center">
-            Awaiting first telemetry payload from this device...
+          <div className="hg-empty" style={{ padding: '32px 16px' }}>
+            <div className="hg-empty-icon">📡</div>
+            <p className="hg-empty-title">Awaiting first telemetry</p>
+            <p className="hg-empty-desc">No payload received from this device yet.</p>
           </div>
         )}
       </div>
 
-      {/* Device Metadata Card */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6 border border-warmStone">
-        <h3 className="text-lg font-semibold text-obsidian mb-4">Device Metadata</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p className="text-warmGraphite">Device Name</p>
-            <p className="font-semibold text-obsidian">{device.name || device.device_id}</p>
-          </div>
-          <div>
-            <p className="text-warmGraphite">Firmware Version</p>
-            <p className="font-semibold text-obsidian">{device.firmware_version || 'Not reported'}</p>
-          </div>
-          <div>
-            <p className="text-warmGraphite">Last Contact (Heartbeat / Log)</p>
-            <p className="font-semibold text-obsidian">{formatTimestamp(status.last_seen_at)}</p>
-          </div>
-          <div>
-            <p className="text-warmGraphite">Last Telemetry Timestamp</p>
-            <p className="font-semibold text-obsidian">{formatTimestamp(status.last_telemetry_at)}</p>
-          </div>
-          <div>
-            <p className="text-warmGraphite">Registered At</p>
-            <p className="font-semibold text-obsidian">{formatTimestamp(device.created_at)}</p>
-          </div>
-          <div>
-            <p className="text-warmGraphite">24h Event Count</p>
-            <p className="font-semibold text-obsidian">{status.recent_activity_count} events</p>
-          </div>
+      {/* Device Metadata */}
+      <div className="hg-card" style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-carbon)', marginBottom: 14 }}>
+          Device Metadata
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, fontSize: 13 }}>
+          {[
+            { label: 'Name', value: device.name || '—' },
+            { label: 'Firmware', value: device.firmware_version ? <code className="hg-code">{device.firmware_version}</code> : '—' },
+            { label: 'Last Contact', value: fmt(status.last_seen_at) },
+            { label: 'Last Telemetry', value: fmt(status.last_telemetry_at) },
+            { label: 'Registered At', value: fmt(device.created_at) },
+            { label: '24h Event Count', value: `${status.recent_activity_count} events` },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-warm-graphite)', marginBottom: 3 }}>
+                {label}
+              </div>
+              <div style={{ fontWeight: 500, color: 'var(--color-carbon)' }}>{value}</div>
+            </div>
+          ))}
         </div>
         {status.last_error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
-            <span className="font-bold">Last Reported Ingestion Error:</span> {status.last_error}
+          <div className="hg-alert hg-alert-error" style={{ marginTop: 12 }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M7 4.5V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="7" cy="9.5" r="0.7" fill="currentColor"/>
+            </svg>
+            <span><strong>Last ingestion error:</strong> {status.last_error}</span>
           </div>
         )}
       </div>
 
-      {/* Historical Telemetry & Events */}
-      <div className="bg-white rounded-lg shadow p-6 border border-warmStone">
-        <h3 className="text-lg font-semibold text-obsidian mb-4">Recent Event History</h3>
+      {/* Event History */}
+      <div className="hg-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-warm-stone)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-carbon)' }}>
+            Recent Event History <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--color-warm-graphite)' }}>(last 15)</span>
+          </div>
+        </div>
         {events.length === 0 ? (
-          <p className="text-warmGraphite text-sm">No historical events recorded for this device.</p>
+          <div className="hg-empty" style={{ padding: '32px 16px' }}>
+            <p className="hg-empty-desc">No events recorded for this device.</p>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-warmStone text-sm">
-              <thead className="bg-warmStone">
+          <div style={{ overflowX: 'auto' }}>
+            <table className="hg-table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">Time (UTC)</th>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">Event</th>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">Alert</th>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">Cause</th>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">RMS</th>
-                  <th className="px-4 py-2 text-left font-semibold text-warmGraphite uppercase text-xs">Gas Δ</th>
+                  <th>Time</th>
+                  <th>Event</th>
+                  <th>Alert</th>
+                  <th>Cause</th>
+                  <th>RMS</th>
+                  <th>Gas Δ</th>
+                  <th>Leak P</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-warmStone">
+              <tbody>
                 {events.map((ev) => (
-                  <tr key={ev.id} className="hover:bg-softSand/30">
-                    <td className="px-4 py-2 text-warmGraphite text-xs">{formatTimestamp(ev.server_timestamp)}</td>
-                    <td className="px-4 py-2 text-obsidian font-medium">{ev.event_name || 'telemetry'}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                          ev.alert === 'DANGER'
-                            ? 'bg-red-100 text-red-800'
-                            : ev.alert === 'CAUTION'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
-                      >
-                        {ev.alert || 'OK'}
-                      </span>
+                  <tr key={ev.id}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-warm-graphite)' }}>
+                      {fmt(ev.server_timestamp)}
                     </td>
-                    <td className="px-4 py-2 text-warmGraphite text-xs">{ev.cause || '—'}</td>
-                    <td className="px-4 py-2 text-obsidian font-mono text-xs">{ev.rms != null ? ev.rms.toFixed(1) : '—'}</td>
-                    <td className="px-4 py-2 text-obsidian font-mono text-xs">{ev.gas_delta ?? '—'}</td>
+                    <td style={{ fontSize: 12, fontWeight: 500 }}>{ev.event_name || 'telemetry'}</td>
+                    <td>
+                      {ev.alert ? (
+                        <span className={`hg-badge ${ev.alert === 'DANGER' ? 'hg-badge-danger' : ev.alert === 'CAUTION' ? 'hg-badge-caution' : 'hg-badge-ok'}`}>
+                          {ev.alert}
+                        </span>
+                      ) : (
+                        <span className="hg-badge hg-badge-ok">OK</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--color-warm-graphite)' }}>{ev.cause || '—'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{ev.rms != null ? ev.rms.toFixed(1) : '—'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{ev.gas_delta ?? '—'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: ev.leak_probability != null && ev.leak_probability > 0.5 ? 'var(--color-alert-danger)' : undefined }}>
+                      {ev.leak_probability != null ? `${(ev.leak_probability * 100).toFixed(1)}%` : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -352,27 +347,40 @@ function DeviceDetail() {
         )}
       </div>
 
-      {/* One-Time Key Modal */}
+      {/* New Key Modal */}
       {issuedKey && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-warmStone">
-            <h3 className="text-lg font-bold text-obsidian mb-2">New Device Credential Issued</h3>
-            <p className="text-xs text-warmGraphite mb-4">{rotationMessage}</p>
-            <div className="bg-softSand/40 p-3 rounded font-mono text-sm break-all select-all border border-warmStone mb-4">
-              {issuedKey}
+        <div className="hg-modal-backdrop">
+          <div className="hg-modal">
+            <div className="hg-modal-header">
+              <span className="hg-modal-title">New Credential Issued</span>
+              <button className="hg-close-btn" onClick={() => setIssuedKey(null)}>×</button>
             </div>
-            <div className="flex justify-between items-center">
-              <button
-                onClick={() => copyToClipboard(issuedKey)}
-                className="px-4 py-2 bg-burntOrange text-white text-xs font-medium rounded hover:bg-darkBurntOrange transition-colors"
-              >
-                {isCopied ? 'Copied!' : 'Copy to Clipboard'}
-              </button>
-              <button
-                onClick={() => setIssuedKey(null)}
-                className="px-4 py-2 bg-gray-200 text-obsidian text-xs font-medium rounded hover:bg-gray-300"
-              >
-                Dismiss
+            <div className="hg-modal-body">
+              <p style={{ fontSize: 13, color: 'var(--color-warm-graphite)', marginBottom: 12 }}>
+                {rotationMessage}
+              </p>
+              <div style={{
+                background: 'var(--color-warm-stone)',
+                border: '1px solid var(--color-soft-sand)',
+                borderRadius: 8,
+                padding: '14px 16px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 13,
+                wordBreak: 'break-all',
+                userSelect: 'all',
+                color: 'var(--color-carbon)',
+                marginBottom: 16,
+              }}>
+                {issuedKey}
+              </div>
+              <div className="hg-alert" style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontSize: 12 }}>
+                ⚠ This key will only be shown once. Copy it before closing.
+              </div>
+            </div>
+            <div className="hg-modal-footer">
+              <button className="hg-btn hg-btn-secondary" onClick={() => setIssuedKey(null)}>Dismiss</button>
+              <button className="hg-btn hg-btn-primary" onClick={() => copyToClipboard(issuedKey)}>
+                {isCopied ? '✓ Copied!' : 'Copy to Clipboard'}
               </button>
             </div>
           </div>
