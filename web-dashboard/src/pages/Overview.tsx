@@ -274,6 +274,76 @@ export default function Overview() {
             </div>
           </div>
         </Link>
+
+        <Link
+          to="/feed"
+          className="hg-card"
+          style={{
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            borderLeft: '4px solid var(--color-burnt-orange)',
+            transition: 'transform var(--transition-fast), box-shadow var(--transition-fast)',
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 8,
+              background: 'rgba(240, 120, 66, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              flexShrink: 0,
+            }}
+          >
+            📡
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-carbon)' }}>Live Telemetry Feed</div>
+            <div style={{ fontSize: 12, color: 'var(--color-warm-graphite)', marginTop: 2 }}>
+              Continuous multi-device event stream with real-time polling cadence controls
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          to="/bom"
+          className="hg-card"
+          style={{
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            borderLeft: '4px solid var(--color-dark-orange)',
+            transition: 'transform var(--transition-fast), box-shadow var(--transition-fast)',
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 8,
+              background: 'rgba(169, 78, 41, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              flexShrink: 0,
+            }}
+          >
+            ⚙️
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-carbon)' }}>Hardware BOM &amp; Cost</div>
+            <div style={{ fontSize: 12, color: 'var(--color-warm-graphite)', marginTop: 2 }}>
+              Itemized low-cost prototype BOM ($&lt; $35 USD) &amp; engineering sourcing rationales
+            </div>
+          </div>
+        </Link>
       </div>
 
       {/* Metric Cards */}

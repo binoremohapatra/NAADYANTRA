@@ -13,6 +13,8 @@ import Alerts from './pages/Alerts';
 import Sessions from './pages/Sessions';
 import Trainees from './pages/Trainees';
 import Assessments from './pages/Assessments';
+import LiveFeed from './pages/LiveFeed';
+import BomProcurement from './pages/BomProcurement';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -59,6 +61,7 @@ function App() {
               }
             >
               <Route index element={<Overview />} />
+              <Route path="feed" element={<LiveFeed />} />
               <Route path="diagnostics" element={<Diagnostics />} />
               <Route path="training" element={<TrainingWorkflow />} />
               <Route path="devices" element={<Devices />} />
@@ -67,6 +70,7 @@ function App() {
               <Route path="trainees" element={<Trainees />} />
               <Route path="assessments" element={<Assessments />} />
               <Route path="alerts" element={<Alerts />} />
+              <Route path="bom" element={<BomProcurement />} />
             </Route>
           </Routes>
         </Router>

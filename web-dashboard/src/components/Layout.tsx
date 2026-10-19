@@ -23,6 +23,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/feed',
+    label: 'Live Telemetry Feed',
+    icon: (
+      <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+        <path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M2.5 2.5a8 8 0 0 0 0 11M13.5 2.5a8 8 0 0 1 0 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/diagnostics',
     label: 'Diagnostic Workspace',
     icon: (
@@ -96,6 +107,16 @@ const NAV_ITEMS = [
         <path d="M8 1L1.5 13h13L8 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
         <path d="M8 6v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         <circle cx="8" cy="11.5" r="0.75" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/bom',
+    label: 'Hardware BOM',
+    icon: (
+      <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
   },
