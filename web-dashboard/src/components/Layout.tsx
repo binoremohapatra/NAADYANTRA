@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { useDemo } from '../context/DemoContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface LayoutProps {
   onLogout: () => void;
@@ -11,6 +12,7 @@ interface LayoutProps {
 const NAV_ITEMS = [
   {
     to: '/',
+    key: 'nav.overview',
     label: 'Overview',
     exact: true,
     icon: (
@@ -24,6 +26,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/feed',
+    key: 'nav.feed',
     label: 'Live Telemetry Feed',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,6 +38,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/diagnostics',
+    key: 'nav.diagnostics',
     label: 'Diagnostic Workspace',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -45,6 +49,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/training',
+    key: 'nav.training',
     label: 'Training Studio',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -55,6 +60,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/devices',
+    key: 'nav.devices',
     label: 'Devices',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -67,6 +73,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/sessions',
+    key: 'nav.sessions',
     label: 'Sessions',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -81,6 +88,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/trainees',
+    key: 'nav.trainees',
     label: 'Trainees',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -91,6 +99,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/assessments',
+    key: 'nav.assessments',
     label: 'Assessments',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -101,6 +110,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/alerts',
+    key: 'nav.alerts',
     label: 'Alerts',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -112,6 +122,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/bom',
+    key: 'nav.bom',
     label: 'Hardware BOM',
     icon: (
       <svg className="hg-nav-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -127,6 +138,7 @@ function Layout({ onLogout }: LayoutProps) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { isDemoMode, toggleDemoMode } = useDemo();
+  const { lang, toggleLang, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -144,14 +156,16 @@ function Layout({ onLogout }: LayoutProps) {
   // Determine current page title for the topbar
   const pageTitle = (() => {
     const path = location.pathname;
-    if (path === '/') return 'Command Centre Overview';
-    if (path.startsWith('/diagnostics')) return 'Diagnostic Workspace';
-    if (path.startsWith('/training')) return 'Vocational Training Studio';
-    if (path.startsWith('/devices')) return 'Device Management';
-    if (path.startsWith('/sessions')) return 'Training Sessions';
-    if (path.startsWith('/trainees')) return 'Trainee Directory';
-    if (path.startsWith('/assessments')) return 'NSQF Skill Assessments';
-    if (path.startsWith('/alerts')) return 'Hazard Alerts';
+    if (path === '/') return t('title.overview', 'Command Centre Overview');
+    if (path.startsWith('/feed')) return t('title.feed', 'Real-Time Combined Telemetry Feed');
+    if (path.startsWith('/diagnostics')) return t('title.diagnostics', 'Diagnostic Workspace');
+    if (path.startsWith('/training')) return t('title.training', 'Vocational Training Studio');
+    if (path.startsWith('/devices')) return t('title.devices', 'Device Fleet Management');
+    if (path.startsWith('/sessions')) return t('title.sessions', 'Training Sessions');
+    if (path.startsWith('/trainees')) return t('title.trainees', 'Trainee Directory');
+    if (path.startsWith('/assessments')) return t('title.assessments', 'NSQF Skill Assessments');
+    if (path.startsWith('/alerts')) return t('title.alerts', 'Hazard Alerts Log');
+    if (path.startsWith('/bom')) return t('title.bom', 'Hardware Procurement & BOM');
     return 'Dashboard';
   })();
 
@@ -180,7 +194,7 @@ function Layout({ onLogout }: LayoutProps) {
               onClick={() => setMobileMenuOpen(false)}
             >
               {item.icon}
-              {item.label}
+              {t(item.key, item.label)}
             </NavLink>
           ))}
         </nav>
@@ -189,14 +203,14 @@ function Layout({ onLogout }: LayoutProps) {
         <div className="hg-sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 10px', fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
             <span className="hg-dot hg-dot-ok" style={{ width: 6, height: 6 }} />
-            <span>Role: Trainer / Assessor</span>
+            <span>{t('nav.role', 'Role: Trainer / Assessor')}</span>
           </div>
           <button className="hg-sidebar-logout" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               <path d="M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Sign Out
+            {t('nav.signout', 'Sign Out')}
           </button>
         </div>
       </aside>
@@ -218,6 +232,27 @@ function Layout({ onLogout }: LayoutProps) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Hindi / English Language Switcher */}
+            <button
+              className="hg-btn hg-btn-secondary"
+              onClick={toggleLang}
+              style={{
+                fontSize: 11,
+                padding: '4px 10px',
+                height: 30,
+                borderRadius: 99,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+              title={lang === 'en' ? 'हिंदी में बदलें (Switch to Hindi)' : 'Switch to English'}
+              aria-label="Toggle Language"
+            >
+              <span style={{ fontSize: 13 }}>🌐</span>
+              <span>{lang === 'en' ? 'हिंदी' : 'EN'}</span>
+            </button>
+
             {/* Demo Mode Toggle */}
             <button
               onClick={toggleDemoMode}
@@ -231,7 +266,7 @@ function Layout({ onLogout }: LayoutProps) {
               }}
               title={isDemoMode ? 'Click to switch to live production backend' : 'Click to enable isolated offline demo mode'}
             >
-              {isDemoMode ? '🧪 Demo Mode: ON' : 'Live Backend'}
+              {isDemoMode ? t('mode.demo_on', '🧪 Demo Mode: ON') : t('mode.live', 'Live Backend')}
             </button>
 
             {/* Light / Dark Mode Toggle */}

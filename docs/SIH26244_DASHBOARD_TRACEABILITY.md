@@ -29,18 +29,44 @@
 
 | Modality / Sensor | Firmware Flag (`leak_detector.ino`) | Pin Assignment | Hardware Status | Dashboard Representation |
 |---|---|---|---|---|
-| **Contact Acoustic Piezo** | `RUN_MODE_DETECT` (Active) | `PIN_PIEZO` (ADC1_CH3) | **Active** (12-bit ADC @ 8kHz, IIR DC-block) | `ACTIVE`: Displays raw RMS counts, Crest factor, and heuristic leak probability. Discloses local vibration only (no triangulation). |
-| **Combustible Gas (MQ-2)** | `HAS_GAS_SENSOR 1` | `PIN_GAS` (ADC1_CH4) | **Active** (5V divider stepped down to ADC linear range) | `INDICATIVE RELATIVE`: Displays ADC delta and $R_s/R_0$ ratio. Explicitly flags uncalibrated nature (not ppm or %LEL). |
-| **Moisture Conduction Probe** | `HAS_MOISTURE_SENSOR 1`<br>`MOIST_POWER_GATED 1` | `PIN_MOISTURE` (ADC1_CH5)<br>`PIN_MOIST_PWR` (GPIO10) | **Active** (Gated excitation to prevent galvanic oxidation) | `ACTIVE`: Displays binary WET / DRY conduction state. |
-| **MLX90614 Contactless IR** | `HAS_HEAT_SENSOR 0` | I2C SMBus (`PIN_SDA` 8, `PIN_SCL` 9) | **Disabled** in firmware build | `DISABLED IN FW`: Clearly badged as disabled; does not fabricate IR temperature values. |
-| **GUVA-S12SD UV Radiometer** | `HAS_UV_SENSOR 0` | `PIN_UV` (ADC1_CH0) | **Disabled** in firmware build | `DISABLED IN FW`: Clearly badged as disabled; welding arc alarm shown as inactive. |
-| **VL53L0X ToF Distance** | `HAS_DISTANCE_SENSOR 0` | I2C Addr `0x29` | **Disabled** in firmware build | `DISABLED IN FW`: Proximity tracking shown as unconfigured. |
-| **TinyML Hazard Fusion** | `USE_TINYML_HAZARD_FUSION 0` | N/A | **Disabled** (Heuristic fallback active) | Discloses heuristic ratio $(\text{RMS}/\text{RMS}_\text{base})/4.0$ with label suffix `(rms)`. |
-| **Edge Impulse TinyML** | `USE_EDGE_IMPULSE 0` | N/A | **Disabled** (RMS fallback detector) | Discloses that machine learning model is inactive in embedded runtime. |
+| **Contact Acoustic / Mic** | `RUN_MODE_DETECT` (Active) | `PIN_MICROPHONE` (GPIO 34) | **Active** (12-bit ADC @ 8kHz, IIR DC-block) | `ACTIVE`: Displays raw RMS counts, Crest factor, and acoustic leak probability. Discloses local contact/proximity acoustic vibration only (no spatial triangulation). |
+| **Combustible Gas (MQ-2)** | `HAS_GAS_SENSOR 1` | `PIN_GAS` (GPIO 35) | **Active** (Stepped down ADC linear range) | `INDICATIVE RELATIVE`: Displays ADC delta and $R_s/R_0$ ratio. Explicitly flags uncalibrated relative reading (not certified ppm or %LEL). |
+| **Moisture Conduction Probe** | `HAS_MOISTURE_SENSOR 0` | Disabled | **Disabled** (Pins reassigned for I2C) | `DISABLED IN FW`: Non-active sensor gracefully suppressed to prevent fake reading. |
+| **VL53L0X Distance (ToF)** | `HAS_DISTANCE_SENSOR 1` | I2C Addr `0x29` (`SDA 21`, `SCL 22`) | **Active** (Direct lightweight register driver) | `ACTIVE`: Measures standoff distance in mm (<150mm proximity breach alert). |
+| **BH1750 Ambient Lux** | `HAS_LUX_SENSOR 1` | I2C Addr `0x23` (`SDA 21`, `SCL 22`) | **Active** (Direct lightweight register driver) | `ACTIVE`: Measures luminous flux (>15000 lux arc flash / flame flare detection). |
+| **TinyML Hazard Fusion** | `USE_TINYML_HAZARD_FUSION 1` | Flash Memory (`hazard_model.h`) | **Active** (8-tree static Random Forest) | `ACTIVE EMBEDDED TINYML`: 8-tree decision ensemble evaluating `[rms, crest, gas_delta, dist_mm, lux]` directly on ESP32 in ~45 microseconds. |
+| **Edge Impulse TinyML** | `USE_EDGE_IMPULSE 0` | N/A | **Disabled** (TinyML Random Forest active) | Replaced by onboard C-header TinyML random forest model without cloud dependencies. |
 
 ---
 
-## 3. Same-Wi-Fi Fleet Discovery & Central Registry Architecture
+## 3. Hindi-English Bilingual System (i18n)
+
+- **Architecture**: React context-driven dictionary system (`LanguageContext.tsx`) with zero bundle bloat and persistent local storage (`naadyantra_lang`).
+- **Translation Breadth**:
+  - Main navigation & view titles (`Overview`, `Fleet`, `Active Feed`, `Diagnostics`, `Vocational Studio`, `Sessions`, `BOM`).
+  - Device reporting statuses (`Online / सक्रिय`, `Stale / विलंबित`, `Offline / ऑफ़लाइन`).
+  - Alert severities (`Normal / सुरक्षित`, `Caution / सावधानी`, `Danger / गंभीर खतरा`).
+  - Rubric outcomes (`Competent / योग्य`, `Needs Improvement / सुधार आवश्यक`, `Not Assessable / मूल्यांकन योग्य नहीं`).
+  - Operational & Safety disclaimers (Local browser sandboxing, uncalibrated MQ-2, contact piezo localization constraints).
+- **Test Verification**: Validated in `src/test/acceptance.test.ts` ensuring all navigation items and status strings maintain complete parallel translation pairs without missing keys.
+
+---
+
+## 4. Downloadable & Printable Session Reports (PDF / CSV)
+
+- **Printable PDF Transcript Modal (`PrintableReportModal.tsx`)**:
+  - CSS `@media print` rules formatted for professional A4 pagination.
+  - Session metadata block (Session ID, Trainee ID, Device ID, trade rubric, start/end timestamps, elapsed duration).
+  - Hardware & Sensor Profile snapshot (reporting firmware version, enabled sensors, acoustic baseline).
+  - Telemetry summary statistics (telemetry windows, leak alerts, gas excursions, max leak probability).
+  - Complete chronological event timeline with exact timestamps, sensor readouts, and explainable insight descriptions.
+  - Formal Trainer Assessment & Qualitative Sign-Off block with NSQF outcome, score override, remarks, and physical signature line.
+  - Official educational disclaimer specifying non-accrediting advisory status.
+- **RFC 4180 CSV Export**: One-click download streaming comma-separated telemetry with chronological timestamps, device identifiers, trainee codes, and sensor metrics.
+
+---
+
+## 5. Same-Wi-Fi Fleet Discovery & Central Registry Architecture
 
 ### The Problem
 During training sessions in vocational workshops or ITI labs, multiple trainees wear NAADYANTRA rigs connected to the same facility Wi-Fi network. Trainers require a consolidated dashboard view to monitor all active devices simultaneously.
@@ -48,7 +74,7 @@ During training sessions in vocational workshops or ITI labs, multiple trainees 
 ### Technical Constraint & Truthful Architecture
 - **Browser Sandboxing Limitation**: A web application hosted on a remote cloud origin cannot execute low-level ARP sweeps, ICMP ping sweeps, raw UDP broadcast packets, or mDNS/Bonjour queries across the local subnet (`192.168.x.x`) due to strict browser security sandbox policies.
 - **NAADYANTRA Fleet Registry Solution**:
-  1. Each ESP32-S3 wearable rig is provisioned with a stable `device_id` (e.g. `RIG-PLUMB-01`) and cryptographic token.
+  1. Each ESP32 wearable rig is provisioned with a stable `device_id` (e.g. `RIG-PLUMB-01`) and cryptographic token.
   2. Upon booting on the facility Wi-Fi network, the firmware establishes an outbound HTTPS connection to the central NAADYANTRA backend (`POST /api/log`).
   3. The backend maintains an authoritative device registry (`devices` and `device_status` tables), recording `last_seen_at` and `last_telemetry_at` timestamps.
   4. The React dashboard retrieves the registered fleet via `GET /api/v1/devices` and streams real-time telemetry via `GET /api/v1/events`.
@@ -60,7 +86,7 @@ During training sessions in vocational workshops or ITI labs, multiple trainees 
 
 ---
 
-## 4. Assessment Rubric Architecture
+## 6. Assessment Rubric Architecture
 
 ### Rubric: `RUBRIC-LEAK-V1` (Acoustic Leak Diagnosis)
 - **Trade Alignment**: Plumber (General Level 4 - `PSC/Q0104`) / Field Technician - AC (Level 4 - `ELE/Q3102`)
@@ -78,7 +104,7 @@ During training sessions in vocational workshops or ITI labs, multiple trainees 
 
 ---
 
-## 5. Security & Authentication Architecture
+## 7. Security & Authentication Architecture
 
 - **Token Storage**: JWT Bearer token stored in browser `localStorage` as `auth_token`.
 - **Automatic Session Expiry**: Global Axios response interceptor intercepts HTTP 401 Unauthorized, purges stored credentials, and redirects immediately to `/login`.
@@ -89,11 +115,18 @@ During training sessions in vocational workshops or ITI labs, multiple trainees 
 
 ---
 
-## 6. Verification Summary & Test Evidence
+## 8. Verification Summary & Test Evidence
 
 - **Automated Test Suite**:
-  - Command: `npm test` (`vitest run`)
-  - Execution Output: **13 tests passed across 2 test suites in 269ms**
+  - Command: `npm test` (`vitest run --run`)
+  - Execution Output: **22 tests passed across 3 test suites in 324ms**
+    - `src/test/acceptance.test.ts` (9 tests passed):
+      - Complete Hindi-English translation coverage for navigation, statuses, rubrics, and disclaimers.
+      - Independent multi-device freshness calculations and stream isolation without sensor cross-talk.
+      - Chronological event sorting and handling of delayed/out-of-order telemetry.
+      - Zero fabrication validation: unpopulated optional sensors strictly remain `null`.
+      - Truthful provenance labeling between RMS heuristics and embedded TinyML inference.
+      - RFC 4180 CSV export construction with proper headers and metadata.
     - `src/test/telemetry.test.ts` (9 tests passed):
       - Freshness threshold calculations (online $\le 60$s, stale $60-300$s, offline $> 300$s, unknown).
       - Null safety & zero data fabrication: ensures absent optional sensors (`temperature`, `uv_delta`, `distance_mm`, `battery_v`) remain `null` and are never coerced to `0`.
@@ -101,8 +134,9 @@ During training sessions in vocational workshops or ITI labs, multiple trainees 
     - `src/test/rubrics.test.ts` (4 tests passed):
       - Criteria weights sum strictly to 100 points.
       - Standardized outcomes: `COMPETENT` ($\ge 75\%$), `NEEDS_IMPROVEMENT` ($< 75\%$), `NOT_ASSESSABLE` (sensor fault or aborted under 15s).
-- **Frontend Compilation**: Production Vite build completed with zero TypeScript errors (`tsc -b && vite build` passed in 5.44s with 96 modules transformed).
-- **Static Analysis**: Linter validation executed with zero errors (`oxlint` passed on 25 files with 116 rules).
+- **Frontend Compilation**: Production Vite build completed with zero TypeScript errors (`tsc -b && vite build` passed in 475ms, bundle size 537kB).
+- **Static Analysis**: Linter validation executed with zero errors (`oxlint` passed on 26 files with 116 rules).
 - **Dual-Theme Integrity**: Verified in both Light (Industrial Ivory `#F7F5F0`) and Dark (`#131416`) modes with persisted preference in `localStorage`.
 - **Client-Side Demo Mode**: Zero database contamination; deterministic mock fixtures validated.
 - **Backend Compatibility**: Backward-compatible with all existing FastAPI routes (`/api/v1/dashboard/overview`, `/api/v1/events`, `/api/v1/sessions`, `/api/v1/trainees`, `/api/v1/assessments`, `/api/v1/devices`).
+
