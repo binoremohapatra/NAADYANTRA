@@ -36,6 +36,9 @@
 #include <time.h>
 #include <esp_random.h>
 
+// Forward declarations for types referenced in Arduino-generated prototypes
+struct SamplerCtx;
+
 // Dual-core compatibility: supports both Arduino-ESP32 Core 2.x and Core 3.x HAL
 
 #define FW_VERSION  "1.1.0"
@@ -290,20 +293,6 @@ struct App {
   int16_t distMm = -1;
 };
 
-static uint32_t gFs = 0, gWin = 0, gHop = 0, gRingMask = 0;
-static int16_t *gRing = nullptr, *gRefRing = nullptr;
-static float* gFeat = nullptr;
-static std::atomic<uint32_t> gHead{0}, gSlowSeq{0}, gOverruns{0};
-static std::atomic<uint16_t> gGasRaw{0}, gMoistRaw{0}, gUvRaw{0};
-static TaskHandle_t gSamplerTask = nullptr, gConsumerTask = nullptr;
-static hw_timer_t* gTimer = nullptr;
-
-static inline int16_t clamp16(float v) {
-  if (v >  32767.0f) return  32767;
-  if (v < -32768.0f) return -32768;
-  return (int16_t)lrintf(v);
-}
-
 // First-order IIR DC-blocking filter to remove ~1.65V DC virtual ground offset.
 struct DcBlock {
   float x1 = 0, y1 = 0; bool primed = false;
@@ -319,6 +308,24 @@ struct SamplerCtx {
   DcBlock dcMain, dcRef;
   uint32_t tick = 0, sinceHop = 0, slowDiv = 200;
 };
+
+// Explicit function prototypes for Arduino IDE preprocessor
+static void samplerInit(SamplerCtx& c);
+static void samplerStep(SamplerCtx& c);
+
+static uint32_t gFs = 0, gWin = 0, gHop = 0, gRingMask = 0;
+static int16_t *gRing = nullptr, *gRefRing = nullptr;
+static float* gFeat = nullptr;
+static std::atomic<uint32_t> gHead{0}, gSlowSeq{0}, gOverruns{0};
+static std::atomic<uint16_t> gGasRaw{0}, gMoistRaw{0}, gUvRaw{0};
+static TaskHandle_t gSamplerTask = nullptr, gConsumerTask = nullptr;
+static hw_timer_t* gTimer = nullptr;
+
+static inline int16_t clamp16(float v) {
+  if (v >  32767.0f) return  32767;
+  if (v < -32768.0f) return -32768;
+  return (int16_t)lrintf(v);
+}
 
 static void* allocBig(size_t bytes) {
   void* p = psramFound() ? ps_malloc(bytes) : nullptr;
