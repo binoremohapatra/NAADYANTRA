@@ -48,21 +48,21 @@ struct SamplerCtx;
 #define RUN_MODE          RUN_MODE_DETECT   // Set to RUN_MODE_COLLECT for dataset acquisition
 
 #define USE_EDGE_IMPULSE      0   // 0 = RMS fallback detector (verified buildable), 1 = Edge Impulse TinyML
-// ⚠️ DISABLED: hazard_model.h exists but is for distance/temperature/UV wearable sensors, not acoustic leak detection
-// Re-enable only after training or sourcing a compatible acoustic leak detection model
-#define USE_TINYML_HAZARD_FUSION 0 // 1 = Embedded TinyML multi-sensor hazard fusion (hazard_model.h), 0 = heuristic only
+#define USE_TINYML_HAZARD_FUSION 1 // 1 = Embedded TinyML multi-sensor hazard fusion (hazard_model.h), 0 = heuristic only
 #define USE_REFERENCE_SENSOR  0   // Dual microphone ambient noise subtraction
-#define HAS_GAS_SENSOR        1
-#define HAS_MOISTURE_SENSOR   1
-#define HAS_HEAT_SENSOR       0   // MLX90614 contactless IR pyrometer enabled
-#define HAS_UV_SENSOR         0   // GUVA-S12SD analog UV sensor enabled
-#define HAS_DISTANCE_SENSOR   0   // VL53L0X Time-of-Flight distance sensor (I2C 0x29)
+#define HAS_GAS_SENSOR        1   // MQ-2 combustible gas sensor (analog PIN_GAS 35)
+#define HAS_MOISTURE_SENSOR   0   // 0 = Disabled (not present on physical perfboard, avoids floating-pin false alarms)
+#define HAS_HEAT_SENSOR       0   // MLX90614 contactless IR pyrometer (not fitted)
+#define HAS_UV_SENSOR         0   // GUVA-S12SD analog UV sensor (not fitted)
+#define HAS_DISTANCE_SENSOR   1   // VL53L0X Time-of-Flight distance sensor (I2C 0x29)
+#define HAS_BH1750_SENSOR     1   // BH1750 ambient light sensor (I2C 0x23)
 #define VL53_ADDR             0x29
-#define MOIST_POWER_GATED     1   // Gated excitation pin to prevent electrolytic oxidation
+#define BH1750_ADDR           0x23
+#define MOIST_POWER_GATED     0   // Disabled with moisture probe
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
 #define DEBUG_SERIAL          1
-#define VERIFY_TLS_CERT       1   // 1 = Production TLS certificate verification enabled (GlobalSign ECC Root CA - R4), 0 = bench debug
+#define VERIFY_TLS_CERT       0   // 0 = Bench debug (accepts cloud TLS cert), 1 = Strict ECC CA
 
 #if USE_TINYML_HAZARD_FUSION
 #include "hazard_model.h"
@@ -205,7 +205,8 @@ enum GasLevel : uint8_t { GAS_OK, GAS_WARN, GAS_ALARM };    // Shared alert seve
 enum Alert    : uint8_t { ALERT_OK, ALERT_CAUTION, ALERT_DANGER };
 enum Cause    : uint8_t { CAUSE_NONE, CAUSE_STARTUP, CAUSE_UNCERTAIN, CAUSE_NOISE, CAUSE_AMBIENT,
                           CAUSE_FAULT, CAUSE_GAS_WARN, CAUSE_WET, CAUSE_LEAK, CAUSE_GAS_ALARM,
-                          CAUSE_HEAT_WARN, CAUSE_UV_WARN, CAUSE_HEAT_ALARM, CAUSE_UV_ALARM };
+                          CAUSE_HEAT_WARN, CAUSE_UV_WARN, CAUSE_HEAT_ALARM, CAUSE_UV_ALARM,
+                          CAUSE_PROX_WARN, CAUSE_ARC_WARN };
 enum LogKind  : uint8_t { LOGK_EVENT, LOGK_SUMMARY };
 
 struct AcousticResult {
@@ -289,8 +290,11 @@ struct App {
   float vBat = 0.0f;
   bool batLowWarn = false;
   uint8_t batShutdownCnt = 0;
-  // distance (ToF)
+  // distance (ToF) & optical light
   int16_t distMm = -1;
+  float distVel = 0.0f;
+  uint32_t lastDistMs = 0;
+  float lux = 0.0f;
 };
 
 // First-order IIR DC-blocking filter to remove ~1.65V DC virtual ground offset.
@@ -524,9 +528,12 @@ static GasLevel levelFrom(float v, float warn, float alarm, GasLevel prev) {
 //           > Sensor faults > Initialization > Ambient noise > Uncertain
 static Verdict fuse(const FuseIn& in) {
   // High-confidence TinyML multimodal hazard reinforcement (hazard_model.h)
-  if (in.hzConf >= 60) {
-    if (in.hzState == 3) return {ALERT_DANGER,  CAUSE_GAS_ALARM};  // Gas Buildup predicted
-    if (in.hzState == 4) return {ALERT_DANGER,  CAUSE_HEAT_ALARM}; // Workpiece Overheat predicted
+  // Classes: 0: Normal, 1: Safe Arc, 2: Proximity Breach, 3: Gas Buildup, 4: Workpiece Overheat
+  if (in.hzConf >= 55) {
+    if (in.hzState == 3) return {ALERT_DANGER,  CAUSE_GAS_ALARM};   // Gas Buildup predicted by TinyML
+    if (in.hzState == 4) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};  // Workpiece Overheat predicted by TinyML
+    if (in.hzState == 2) return {ALERT_CAUTION, CAUSE_PROX_WARN};   // Proximity breach (<150mm)
+    if (in.hzState == 1) return {ALERT_CAUTION, CAUSE_ARC_WARN};    // Optical / Arc flash flare detected
   }
   if (in.gasAlarm)  return {ALERT_DANGER,  CAUSE_GAS_ALARM};
   if (in.heatAlarm) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};
@@ -536,7 +543,6 @@ static Verdict fuse(const FuseIn& in) {
   if (in.gasWarn)   return {ALERT_CAUTION, CAUSE_GAS_WARN};
   if (in.heatWarn)  return {ALERT_CAUTION, CAUSE_HEAT_WARN};
   if (in.uvWarn)    return {ALERT_CAUTION, CAUSE_UV_WARN};
-  if (in.hzConf >= 50 && in.hzState == 2) return {ALERT_CAUTION, CAUSE_HEAT_WARN}; // Proximity breach warning
   if (in.gasFault || in.heatFault || in.noSignal || in.stale) return {ALERT_CAUTION, CAUSE_FAULT};
   if (in.startup)   return {ALERT_CAUTION, CAUSE_STARTUP};
   if (in.ambient)   return {ALERT_CAUTION, CAUSE_AMBIENT};
@@ -555,6 +561,8 @@ static const char* causeText(Cause c) {      // OLED banner string (10 character
     case CAUSE_GAS_WARN:   return "GAS RISING";
     case CAUSE_HEAT_WARN:  return "HEAT WARN";
     case CAUSE_UV_WARN:    return "UV WARN";
+    case CAUSE_PROX_WARN:  return "TOO CLOSE!";
+    case CAUSE_ARC_WARN:   return "ARC FLASH!";
     case CAUSE_FAULT:      return "SENSOR ERR";
     case CAUSE_STARTUP:    return "STARTING";
     case CAUSE_AMBIENT:    return "TOO NOISY";
@@ -573,6 +581,8 @@ static const char* causeName(Cause c) {
     case CAUSE_GAS_WARN:   return "GAS_WARN";
     case CAUSE_HEAT_WARN:  return "HEAT_WARN";
     case CAUSE_UV_WARN:    return "UV_WARN";
+    case CAUSE_PROX_WARN:  return "PROX_WARN";
+    case CAUSE_ARC_WARN:   return "ARC_WARN";
     case CAUSE_FAULT:      return "FAULT";
     case CAUSE_STARTUP:    return "STARTUP";
     case CAUSE_AMBIENT:    return "AMBIENT";
@@ -594,6 +604,8 @@ static uint16_t buzzPattern(Cause c) {
     case CAUSE_GAS_WARN:   return 0x0005;   // Double-pulse warning tone
     case CAUSE_HEAT_WARN:  return 0x0003;   // Single elongated warning tone
     case CAUSE_UV_WARN:    return 0x0001;   // Short periodic warning pulse
+    case CAUSE_PROX_WARN:  return 0x0303;   // Rapid double-pip proximity warning
+    case CAUSE_ARC_WARN:   return 0x1111;   // Rapid optical flare warning
     default:               return 0x0000;   // Silent mode: visual feedback only
   }
 }
@@ -950,33 +962,32 @@ static void refreshDisplay(uint32_t now) {
   gOled.drawRect(0, 34, 128, 8, SSD1306_WHITE);
   gOled.fillRect(2, 36, (int)(clampf(conf, 0, 1) * 124), 4, SSD1306_WHITE);
 
-  // Secondary telemetry readouts
+  // Secondary telemetry readouts: Distance, Gas, Lux, and TinyML State
   gOled.setTextSize(1);
   gOled.setCursor(0, 46);
-#if HAS_GAS_SENSOR
-  if (!app.gas.cal) {
-    const long left = (long)GAS_WARMUP_S - (long)(now / 1000UL);
-    if (left > 0) snprintf(b, sizeof(b), "GAS warm-up %lds", left); else snprintf(b, sizeof(b), "GAS calibrating");
+  if (now < app.msgUntil) {
+    snprintf(b, sizeof(b), "%s", app.msg);
   } else {
-  #if GAS_CAL_VALID
-    snprintf(b, sizeof(b), "GAS %.0f%%LEL WET %d", gasPpm() / GAS_LEL_PPM * 100.0f, app.moist.wet.state ? 1 : 0);
-  #else
-    snprintf(b, sizeof(b), "GAS %+d  WET %d", gasDelta(), app.moist.wet.state ? 1 : 0);
-  #endif
+    char distBuf[12];
+    if (app.distMm > 0 && app.distMm < 2500) snprintf(distBuf, sizeof(distBuf), "D:%dmm", app.distMm);
+    else snprintf(distBuf, sizeof(distBuf), "D:---");
+    snprintf(b, sizeof(b), "%s G:%+d L:%.0f", distBuf, gasDelta(), app.lux);
   }
-#else
-  snprintf(b, sizeof(b), "WET %d", app.moist.wet.state ? 1 : 0);
-#endif
   gOled.print(b);
+
   gOled.setCursor(0, 56);
-  if (now < app.msgUntil) snprintf(b, sizeof(b), "%s", app.msg);
-  else if (app.faultMask) snprintf(b, sizeof(b), "CHK:%s%s%s%s", (app.faultMask & 1) ? " piezo" : "", (app.faultMask & 2) ? " gas" : "",
-                                   (app.faultMask & 4) ? " data" : "", (app.faultMask & 8) ? " heat" : "");
-#if HAS_HEAT_SENSOR || HAS_UV_SENSOR
-  else snprintf(b, sizeof(b), "T%.0fC UV%+d L%.0f%%", app.heat.temp, uvDelta(), app.pLeak * 100);
+  if (app.faultMask) {
+    snprintf(b, sizeof(b), "CHK:%s%s%s%s", (app.faultMask & 1) ? " piezo" : "", (app.faultMask & 2) ? " gas" : "",
+                                           (app.faultMask & 4) ? " data" : "", (app.faultMask & 8) ? " heat" : "");
+  } else {
+#if USE_TINYML_HAZARD_FUSION
+    static const char* const HZ_NAMES[5] = {"NORM", "ARC", "PROX", "GAS", "HEAT"};
+    const char* hzLbl = (app.hzState >= 0 && app.hzState < 5) ? HZ_NAMES[app.hzState] : "?";
+    snprintf(b, sizeof(b), "ML:%s %u%% RMS:%.0f", hzLbl, (unsigned)app.hzConf, app.rmsEma);
 #else
-  else snprintf(b, sizeof(b), "RMS %.0f L%.0f%% N%.0f%%", app.rms, app.pLeak * 100, app.pNoise * 100);
+    snprintf(b, sizeof(b), "RMS %.0f L%.0f%% N%.0f%%", app.rms, app.pLeak * 100, app.pNoise * 100);
 #endif
+  }
   gOled.print(b);
 
   const bool inv = (app.alert == ALERT_DANGER) && ((now / 500) & 1);   // Invert display during critical danger alerts
@@ -1145,15 +1156,198 @@ static void pollBattery(uint32_t now) {
   }
 }
 
+// ---------- Zero-Dependency VL53L0X Time-of-Flight Driver ----------
+#if HAS_DISTANCE_SENSOR
+static bool gVlOk = false;
+static uint8_t gVlStopVar = 0;
+
+static bool vl_w(uint8_t reg, uint8_t v) {
+  Wire.beginTransmission(VL53_ADDR);
+  Wire.write(reg); Wire.write(v);
+  return (Wire.endTransmission() == 0);
+}
+
+static uint8_t vl_r(uint8_t reg) {
+  Wire.beginTransmission(VL53_ADDR);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return 0;
+  if (Wire.requestFrom((uint8_t)VL53_ADDR, (uint8_t)1) != 1) return 0;
+  return Wire.read();
+}
+
+static uint16_t vl_r16(uint8_t reg) {
+  Wire.beginTransmission(VL53_ADDR);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return 0;
+  if (Wire.requestFrom((uint8_t)VL53_ADDR, (uint8_t)2) != 2) return 0;
+  uint8_t hi = Wire.read(), lo = Wire.read();
+  return (uint16_t)((hi << 8) | lo);
+}
+
+static bool vl_wmulti(uint8_t reg, const uint8_t *d, uint8_t n) {
+  Wire.beginTransmission(VL53_ADDR);
+  Wire.write(reg); Wire.write(d, n);
+  return (Wire.endTransmission() == 0);
+}
+
+static bool vl_rmulti(uint8_t reg, uint8_t *d, uint8_t n) {
+  Wire.beginTransmission(VL53_ADDR);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom((uint8_t)VL53_ADDR, n) != n) return false;
+  for (uint8_t i = 0; i < n; ++i) d[i] = Wire.read();
+  return true;
+}
+
+static bool vl_wait_for(uint8_t reg, uint8_t mask, bool want_set, uint32_t timeout_ms) {
+  const uint32_t t0 = millis();
+  for (;;) {
+    const bool set = (vl_r(reg) & mask) != 0;
+    if (set == want_set) return true;
+    if (millis() - t0 > timeout_ms) return false;
+    delay(1);
+  }
+}
+
+static bool vl_single_ref_cal(uint8_t vhv_init) {
+  vl_w(0x00, (uint8_t)(0x01 | vhv_init));
+  if (!vl_wait_for(0x13, 0x07, true, 500)) return false;
+  vl_w(0x0B, 0x01);
+  vl_w(0x00, 0x00);
+  return true;
+}
+
+static bool vl_get_spad_info(uint8_t *count, bool *aperture) {
+  vl_w(0x80, 0x01); vl_w(0xFF, 0x01); vl_w(0x00, 0x00);
+  vl_w(0xFF, 0x06); vl_w(0x83, vl_r(0x83) | 0x04);
+  vl_w(0xFF, 0x07); vl_w(0x81, 0x01);
+  vl_w(0x80, 0x01);
+  vl_w(0x94, 0x6B); vl_w(0x83, 0x00);
+  const uint32_t t0 = millis();
+  while (vl_r(0x83) == 0x00) { if (millis() - t0 > 500) return false; delay(1); }
+  vl_w(0x83, 0x01);
+  const uint8_t tmp = vl_r(0x92);
+  *count = tmp & 0x7F;
+  *aperture = (tmp >> 7) & 1;
+  vl_w(0x81, 0x00); vl_w(0xFF, 0x06); vl_w(0x83, vl_r(0x83) & ~0x04);
+  vl_w(0xFF, 0x01); vl_w(0x00, 0x01);
+  vl_w(0xFF, 0x00); vl_w(0x80, 0x00);
+  return true;
+}
+
+static bool vl_init() {
+  if (vl_r(0xC0) != 0xEE) return false;
+  vl_w(0x89, vl_r(0x89) | 0x01);
+  vl_w(0x88, 0x00);
+  vl_w(0x80, 0x01); vl_w(0xFF, 0x01); vl_w(0x00, 0x00);
+  gVlStopVar = vl_r(0x91);
+  vl_w(0x00, 0x01); vl_w(0xFF, 0x00); vl_w(0x80, 0x00);
+  vl_w(0x60, vl_r(0x60) | 0x12);
+  const uint8_t lim[2] = { 0x00, 0x20 };
+  vl_wmulti(0x44, lim, 2);
+  vl_w(0x01, 0xFF);
+
+  uint8_t spad_count; bool aperture;
+  if (!vl_get_spad_info(&spad_count, &aperture)) return false;
+  uint8_t map[6];
+  if (!vl_rmulti(0xB0, map, 6)) return false;
+  vl_w(0xFF, 0x01); vl_w(0x4F, 0x00); vl_w(0x4E, 0x2C);
+  vl_w(0xFF, 0x00); vl_w(0xB6, 0xB4);
+  const uint8_t first = aperture ? 12 : 0;
+  uint8_t enabled = 0;
+  for (uint8_t i = 0; i < 48; ++i) {
+    if (i < first || enabled == spad_count) map[i / 8] &= (uint8_t)~(1u << (i % 8));
+    else if ((map[i / 8] >> (i % 8)) & 1) ++enabled;
+  }
+  vl_wmulti(0xB0, map, 6);
+
+  static const uint8_t tune[][2] = {
+    {0xFF,0x01},{0x00,0x00},{0xFF,0x00},{0x09,0x00},{0x10,0x00},{0x11,0x00},{0x24,0x01},{0x25,0xFF},
+    {0x75,0x00},{0xFF,0x01},{0x4E,0x2C},{0x48,0x00},{0x30,0x20},{0xFF,0x00},{0x30,0x09},{0x54,0x00},
+    {0x31,0x04},{0x32,0x03},{0x40,0x83},{0x46,0x25},{0x60,0x00},{0x27,0x00},{0x50,0x06},{0x51,0x00},
+    {0x52,0x96},{0x56,0x08},{0x57,0x30},{0x61,0x00},{0x62,0x00},{0x64,0x00},{0x65,0x00},{0x66,0xA0},
+    {0xFF,0x01},{0x22,0x32},{0x47,0x14},{0x49,0xFF},{0x4A,0x00},{0xFF,0x00},{0x7A,0x0A},{0x7B,0x00},
+    {0x78,0x21},{0xFF,0x01},{0x23,0x34},{0x42,0x00},{0x44,0xFF},{0x45,0x26},{0x46,0x05},{0x40,0x40},
+    {0x0E,0x06},{0x20,0x1A},{0x43,0x40},{0xFF,0x00},{0x34,0x03},{0x35,0x44},{0xFF,0x01},{0x31,0x04},
+    {0x4B,0x09},{0x4C,0x05},{0x4D,0x04},{0xFF,0x00},{0x44,0x00},{0x45,0x20},{0x47,0x08},{0x48,0x28},
+    {0x67,0x00},{0x70,0x04},{0x71,0x01},{0x72,0xFE},{0x76,0x00},{0x77,0x00},{0xFF,0x01},{0x0D,0x01},
+    {0xFF,0x00},{0x80,0x01},{0x01,0xF8},{0xFF,0x01},{0x8E,0x01},{0x00,0x01},{0xFF,0x00},{0x80,0x00},
+  };
+  for (size_t i = 0; i < sizeof(tune) / sizeof(tune[0]); ++i) vl_w(tune[i][0], tune[i][1]);
+
+  vl_w(0x0A, 0x04);
+  vl_w(0x84, vl_r(0x84) & ~0x10);
+  vl_w(0x0B, 0x01);
+  vl_w(0x01, 0xE8);
+  vl_w(0x01, 0x01); if (!vl_single_ref_cal(0x40)) return false;
+  vl_w(0x01, 0x02); if (!vl_single_ref_cal(0x00)) return false;
+  vl_w(0x01, 0xE8);
+
+  vl_w(0x80, 0x01); vl_w(0xFF, 0x01); vl_w(0x00, 0x00);
+  vl_w(0x91, gVlStopVar);
+  vl_w(0x00, 0x01); vl_w(0xFF, 0x00); vl_w(0x80, 0x00);
+  vl_w(0x00, 0x02);
+  return true;
+}
+
+static bool vl_try_read(uint16_t *mm) {
+  if ((vl_r(0x13) & 0x07) == 0) return false;
+  *mm = vl_r16(0x14 + 10);
+  vl_w(0x0B, 0x01);
+  return true;
+}
+#endif
+
+// ---------- Zero-Dependency BH1750 Ambient Light Driver ----------
+#if HAS_BH1750_SENSOR
+static bool gBh1750Ok = false;
+
+static bool bh1750Init() {
+  Wire.beginTransmission(BH1750_ADDR);
+  Wire.write(0x10); // Continuous H-Resolution mode
+  gBh1750Ok = (Wire.endTransmission() == 0);
+  return gBh1750Ok;
+}
+
+static bool bh1750ReadLux(float &lux) {
+  if (Wire.requestFrom((uint8_t)BH1750_ADDR, (uint8_t)2) != 2) return false;
+  uint16_t raw = ((uint16_t)Wire.read() << 8) | Wire.read();
+  lux = (float)raw / 1.2f;
+  return true;
+}
+#endif
+
 static void pollDistance(uint32_t now) {
 #if HAS_DISTANCE_SENSOR
-  static uint32_t lastDistMs = 0;
-  if (now - lastDistMs < 100) return;
-  lastDistMs = now;
-  // VL53L0X distance polling when hardware enabled
+  static uint32_t lastDistPollMs = 0;
+  if (!gVlOk || (now - lastDistPollMs < 50)) return;
+  lastDistPollMs = now;
+  uint16_t mm = 0;
+  if (vl_try_read(&mm)) {
+    if (mm > 20 && mm < 2000) {
+      if (app.distMm > 0 && app.lastDistMs > 0 && now > app.lastDistMs) {
+        float dt = (float)(now - app.lastDistMs) / 1000.0f;
+        if (dt > 0.01f) app.distVel = ((float)mm - (float)app.distMm) / dt;
+      }
+      app.distMm = (int16_t)mm;
+      app.lastDistMs = now;
+    }
+  }
 #else
   (void)now;
   app.distMm = -1;  // -1 indicates distance sensor disabled or not fitted
+#endif
+}
+
+static void pollLight(uint32_t now) {
+#if HAS_BH1750_SENSOR
+  static uint32_t lastLuxMs = 0;
+  if (!gBh1750Ok || (now - lastLuxMs < 100)) return;
+  lastLuxMs = now;
+  float lx = 0.0f;
+  if (bh1750ReadLux(lx)) app.lux = lx;
+#else
+  (void)now;
 #endif
 }
 
@@ -1253,14 +1447,22 @@ static void updateVerdict(uint32_t now) {
   in.startup   = !app.haveResult || (!USE_EDGE_IMPULSE && !app.rmsCal);
   in.role      = app.role;
 #if USE_TINYML_HAZARD_FUSION
+  // Feature index map: 0=distance_mm, 1=distance_velocity, 2=temp_object, 3=temp_ambient, 4=delta_temp, 5=uv_index, 6=gas_ppm_slope
+  const float curDist = (app.distMm > 0) ? (float)app.distMm : 300.0f;
+  // Map BH1750 ambient lux (0..12,000+ lux) to 0..12 optical flare scale (normal room ~200-500 lux -> 0.2-0.5; torch/arc flash >2000 lux -> >2.0)
+  float opticalUv = clampf(app.lux / 1000.0f, 0.0f, 12.0f);
+  #if HAS_UV_SENSOR
+    opticalUv = (float)uvDelta();
+  #endif
+
   float hzX[HZ_FEATURE_COUNT] = {
-    300.0f,                                              // 0: distance_mm (nominal safe standoff)
-    0.0f,                                                // 1: distance_velocity
+    curDist,                                             // 0: distance_mm (from VL53L0X)
+    app.distVel,                                         // 1: distance_velocity
     (HAS_HEAT_SENSOR ? app.heat.temp : 25.0f),           // 2: temp_object
     25.0f,                                               // 3: temp_ambient
     (HAS_HEAT_SENSOR ? (app.heat.temp - 25.0f) : 0.0f),   // 4: delta_temp
-    (HAS_UV_SENSOR ? (float)uvDelta() : 0.0f),           // 5: uv_index
-    (HAS_GAS_SENSOR ? (float)gasDelta() : 0.0f)          // 6: gas_ppm_slope
+    opticalUv,                                           // 5: uv_index / optical intensity (from BH1750)
+    (HAS_GAS_SENSOR ? (float)gasDelta() : 0.0f)          // 6: gas_ppm_slope (from MQ-2)
   };
   uint8_t hzConf = 0;
   app.hzState = hazard_predict(hzX, &hzConf);
@@ -1399,9 +1601,26 @@ void setup() {
   if (gOledOk) {
     gOled.clearDisplay(); gOled.setTextColor(SSD1306_WHITE);
     gOled.setTextSize(2); gOled.setCursor(8, 8);  gOled.print("LEAK SENSE");
-    gOled.setTextSize(1); gOled.setCursor(8, 36); gOled.print("SIH 2026  v" FW_VERSION);
+    gOled.setTextSize(1); gOled.setCursor(8, 32); gOled.print("SIH 2026  v" FW_VERSION);
+#if USE_TINYML_HAZARD_FUSION
+    gOled.setCursor(8, 48); gOled.print("TinyML RF Fusion ON");
+#endif
     gOled.display();
   }
+
+#if HAS_DISTANCE_SENSOR
+  gVlOk = vl_init();
+#if DEBUG_SERIAL
+  Serial.printf("[i2c] VL53L0X distance sensor: %s\n", gVlOk ? "OK" : "NOT FOUND (check 0x29)");
+#endif
+#endif
+
+#if HAS_BH1750_SENSOR
+  gBh1750Ok = bh1750Init();
+#if DEBUG_SERIAL
+  Serial.printf("[i2c] BH1750 light sensor: %s\n", gBh1750Ok ? "OK" : "NOT FOUND (check 0x23)");
+#endif
+#endif
 
   gResultQ = xQueueCreate(1, sizeof(AcousticResult));
   xTaskCreatePinnedToCore(inferenceTask, "infer", 16384, nullptr, 2, &gConsumerTask, 0);
@@ -1426,6 +1645,7 @@ void loop() {
   pollSlowSensors(now);
   pollBattery(now);
   pollDistance(now);
+  pollLight(now);
   pollHeat(now);
   runCalibration(now);
   pollAcoustic(now);
