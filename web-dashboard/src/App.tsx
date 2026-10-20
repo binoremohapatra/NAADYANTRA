@@ -14,8 +14,12 @@ import Alerts from './pages/Alerts';
 import Sessions from './pages/Sessions';
 import Trainees from './pages/Trainees';
 import Assessments from './pages/Assessments';
+<<<<<<< HEAD
+import LandingPage from './pages/LandingPage';
+=======
 import LiveFeed from './pages/LiveFeed';
 import BomProcurement from './pages/BomProcurement';
+>>>>>>> bb40027c49099ea07c75b86e0f7d3cc370d18bc1
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,6 +42,52 @@ function App() {
 
   return (
     <ThemeProvider>
+<<<<<<< HEAD
+      <DemoProvider>
+        <Router>
+          <Routes>
+            {/* Cinematic Landing Page */}
+            <Route path="/" element={<LandingPage />} />
+
+            {/* Authentication */}
+            <Route
+              path="/login"
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Login onLogin={() => setIsAuthenticated(true)} />
+                )
+              }
+            />
+
+            {/* Protected Dashboard Console */}
+            <Route
+              element={
+                isAuthenticated ? (
+                  <Layout onLogout={() => setIsAuthenticated(false)} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            >
+              <Route path="/dashboard" element={<Overview />} />
+              <Route path="/diagnostics" element={<Diagnostics />} />
+              <Route path="/training" element={<TrainingWorkflow />} />
+              <Route path="/devices" element={<Devices />} />
+              <Route path="/devices/:deviceId" element={<DeviceDetail />} />
+              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/trainees" element={<Trainees />} />
+              <Route path="/assessments" element={<Assessments />} />
+              <Route path="/alerts" element={<Alerts />} />
+            </Route>
+
+            {/* Fallback to landing page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </DemoProvider>
+=======
       <LanguageProvider>
         <DemoProvider>
           <Router>
@@ -78,6 +128,7 @@ function App() {
           </Router>
         </DemoProvider>
       </LanguageProvider>
+>>>>>>> bb40027c49099ea07c75b86e0f7d3cc370d18bc1
     </ThemeProvider>
   );
 }

@@ -3,7 +3,11 @@ import { useState } from 'react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { useDemo } from '../context/DemoContext';
+<<<<<<< HEAD
+import { BRAND_PREFIX, BRAND_ACCENT, BRAND_SUBTITLE } from '../constants/brand';
+=======
 import { useLanguage } from '../context/LanguageContext';
+>>>>>>> bb40027c49099ea07c75b86e0f7d3cc370d18bc1
 
 interface LayoutProps {
   onLogout: () => void;
@@ -11,8 +15,12 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   {
+<<<<<<< HEAD
+    to: '/dashboard',
+=======
     to: '/',
     key: 'nav.overview',
+>>>>>>> bb40027c49099ea07c75b86e0f7d3cc370d18bc1
     label: 'Overview',
     exact: true,
     icon: (
@@ -156,6 +164,16 @@ function Layout({ onLogout }: LayoutProps) {
   // Determine current page title for the topbar
   const pageTitle = (() => {
     const path = location.pathname;
+<<<<<<< HEAD
+    if (path === '/' || path === '/dashboard') return 'Command Centre Overview';
+    if (path.startsWith('/diagnostics')) return 'Diagnostic Workspace';
+    if (path.startsWith('/training')) return 'Vocational Training Studio';
+    if (path.startsWith('/devices')) return 'Device Management';
+    if (path.startsWith('/sessions')) return 'Training Sessions';
+    if (path.startsWith('/trainees')) return 'Trainee Directory';
+    if (path.startsWith('/assessments')) return 'NSQF Skill Assessments';
+    if (path.startsWith('/alerts')) return 'Hazard Alerts';
+=======
     if (path === '/') return t('title.overview', 'Command Centre Overview');
     if (path.startsWith('/feed')) return t('title.feed', 'Real-Time Combined Telemetry Feed');
     if (path.startsWith('/diagnostics')) return t('title.diagnostics', 'Diagnostic Workspace');
@@ -166,6 +184,7 @@ function Layout({ onLogout }: LayoutProps) {
     if (path.startsWith('/assessments')) return t('title.assessments', 'NSQF Skill Assessments');
     if (path.startsWith('/alerts')) return t('title.alerts', 'Hazard Alerts Log');
     if (path.startsWith('/bom')) return t('title.bom', 'Hardware Procurement & BOM');
+>>>>>>> bb40027c49099ea07c75b86e0f7d3cc370d18bc1
     return 'Dashboard';
   })();
 
@@ -176,9 +195,9 @@ function Layout({ onLogout }: LayoutProps) {
         {/* Brand */}
         <div className="hg-sidebar-brand">
           <div className="hg-sidebar-wordmark">
-            HAZE<span className="hg-sidebar-accent">GUARD</span>
+            {BRAND_PREFIX}<span className="hg-sidebar-accent">{BRAND_ACCENT}</span>
           </div>
-          <div className="hg-sidebar-sub">NAADYANTRA SIH26244</div>
+          <div className="hg-sidebar-sub">{BRAND_SUBTITLE}</div>
         </div>
 
         {/* Navigation */}
