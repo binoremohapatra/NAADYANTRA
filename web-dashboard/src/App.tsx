@@ -13,6 +13,7 @@ import Alerts from './pages/Alerts';
 import Sessions from './pages/Sessions';
 import Trainees from './pages/Trainees';
 import Assessments from './pages/Assessments';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,18 +39,23 @@ function App() {
       <DemoProvider>
         <Router>
           <Routes>
+            {/* Cinematic Landing Page */}
+            <Route path="/" element={<LandingPage />} />
+
+            {/* Authentication */}
             <Route
               path="/login"
               element={
                 isAuthenticated ? (
-                  <Navigate to="/" replace />
+                  <Navigate to="/dashboard" replace />
                 ) : (
                   <Login onLogin={() => setIsAuthenticated(true)} />
                 )
               }
             />
+
+            {/* Protected Dashboard Console */}
             <Route
-              path="/"
               element={
                 isAuthenticated ? (
                   <Layout onLogout={() => setIsAuthenticated(false)} />
@@ -58,16 +64,19 @@ function App() {
                 )
               }
             >
-              <Route index element={<Overview />} />
-              <Route path="diagnostics" element={<Diagnostics />} />
-              <Route path="training" element={<TrainingWorkflow />} />
-              <Route path="devices" element={<Devices />} />
-              <Route path="devices/:deviceId" element={<DeviceDetail />} />
-              <Route path="sessions" element={<Sessions />} />
-              <Route path="trainees" element={<Trainees />} />
-              <Route path="assessments" element={<Assessments />} />
-              <Route path="alerts" element={<Alerts />} />
+              <Route path="/dashboard" element={<Overview />} />
+              <Route path="/diagnostics" element={<Diagnostics />} />
+              <Route path="/training" element={<TrainingWorkflow />} />
+              <Route path="/devices" element={<Devices />} />
+              <Route path="/devices/:deviceId" element={<DeviceDetail />} />
+              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/trainees" element={<Trainees />} />
+              <Route path="/assessments" element={<Assessments />} />
+              <Route path="/alerts" element={<Alerts />} />
             </Route>
+
+            {/* Fallback to landing page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </DemoProvider>

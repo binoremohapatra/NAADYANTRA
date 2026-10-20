@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { useDemo } from '../context/DemoContext';
+import { BRAND_PREFIX, BRAND_ACCENT, BRAND_SUBTITLE } from '../constants/brand';
 
 interface LayoutProps {
   onLogout: () => void;
@@ -10,7 +11,7 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   {
-    to: '/',
+    to: '/dashboard',
     label: 'Overview',
     exact: true,
     icon: (
@@ -123,7 +124,7 @@ function Layout({ onLogout }: LayoutProps) {
   // Determine current page title for the topbar
   const pageTitle = (() => {
     const path = location.pathname;
-    if (path === '/') return 'Command Centre Overview';
+    if (path === '/' || path === '/dashboard') return 'Command Centre Overview';
     if (path.startsWith('/diagnostics')) return 'Diagnostic Workspace';
     if (path.startsWith('/training')) return 'Vocational Training Studio';
     if (path.startsWith('/devices')) return 'Device Management';
@@ -141,9 +142,9 @@ function Layout({ onLogout }: LayoutProps) {
         {/* Brand */}
         <div className="hg-sidebar-brand">
           <div className="hg-sidebar-wordmark">
-            HAZE<span className="hg-sidebar-accent">GUARD</span>
+            {BRAND_PREFIX}<span className="hg-sidebar-accent">{BRAND_ACCENT}</span>
           </div>
-          <div className="hg-sidebar-sub">NAADYANTRA SIH26244</div>
+          <div className="hg-sidebar-sub">{BRAND_SUBTITLE}</div>
         </div>
 
         {/* Navigation */}
