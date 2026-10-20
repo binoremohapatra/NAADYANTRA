@@ -59,6 +59,7 @@ struct SamplerCtx;
 #define VL53_ADDR             0x29
 #define BH1750_ADDR           0x23
 #define MOIST_POWER_GATED     0   // Disabled with moisture probe
+#define HAS_BATTERY_SENSE     0   // 0 = Powered via USB cable (disables false shutdown), 1 = 18650 with divider
 #define ENABLE_WIFI_LOGGING   1
 #define BUZZER_PASSIVE        0   // 0 = Active digital buzzer, 1 = Passive PWM tone
 #define DEBUG_SERIAL          1
@@ -144,7 +145,7 @@ struct SamplerCtx;
 #define CUE_BEEP_MS           25
 
 // ---- Combustible Gas (MQ Sensor Calibration) ---- (ADC raw counts, 0-4095)
-#define GAS_WARMUP_S          120    // Pre-heat stabilization period in seconds (2 min minimum for clean air baseline)
+#define GAS_WARMUP_S          4      // Rapid 4-second baseline stabilization on boot (clean air ambient baseline)
 #define GAS_WARN_DELTA        150    // Warning delta above ambient baseline
 #define GAS_ALARM_DELTA       400    // Critical alarm delta above ambient baseline
 // Load resistor and voltage divider parameters for Rs/R0 calculations
@@ -530,10 +531,10 @@ static Verdict fuse(const FuseIn& in) {
   // High-confidence TinyML multimodal hazard reinforcement (hazard_model.h)
   // Classes: 0: Normal, 1: Safe Arc, 2: Proximity Breach, 3: Gas Buildup, 4: Workpiece Overheat
   if (in.hzConf >= 55) {
-    if (in.hzState == 3) return {ALERT_DANGER,  CAUSE_GAS_ALARM};   // Gas Buildup predicted by TinyML
-    if (in.hzState == 4) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};  // Workpiece Overheat predicted by TinyML
-    if (in.hzState == 2) return {ALERT_CAUTION, CAUSE_PROX_WARN};   // Proximity breach (<150mm)
-    if (in.hzState == 1) return {ALERT_CAUTION, CAUSE_ARC_WARN};    // Optical / Arc flash flare detected
+    if (in.hzState == 3 && HAS_GAS_SENSOR && app.gas.cal && gasDelta() >= GAS_WARN_DELTA) return {ALERT_DANGER,  CAUSE_GAS_ALARM};   // Gas Buildup confirmed by calibrated MQ-2 delta
+    if (in.hzState == 4 && HAS_HEAT_SENSOR && in.heatAlarm) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};  // Workpiece Overheat confirmed by IR sensor
+    if (in.hzState == 2 && app.distMm > 0 && app.distMm < 150) return {ALERT_CAUTION, CAUSE_PROX_WARN};   // Proximity breach (<150mm confirmed by ToF)
+    if (in.hzState == 1 && app.lux > 1500.0f) return {ALERT_CAUTION, CAUSE_ARC_WARN};    // Optical / Arc flash flare confirmed (>1500 lux)
   }
   if (in.gasAlarm)  return {ALERT_DANGER,  CAUSE_GAS_ALARM};
   if (in.heatAlarm) return {ALERT_DANGER,  CAUSE_HEAT_ALARM};
@@ -702,7 +703,10 @@ static float gasPpm() {                            // Uncalibrated fallback code
   return -1.0f;
 #endif
 }
-static int gasDelta() { return (int)(app.gas.f.ema - app.gas.base); }
+static int gasDelta() { 
+  if (!app.gas.cal) return 0; // Return 0 during warmup to prevent false startup alarms
+  return (int)(app.gas.f.ema - app.gas.base); 
+}
 static int uvDelta()  { return (int)(app.uv.f.ema - app.uv.base); }
 
 // ---------- logging (HTTP(S) POST to backend, background task) ----------
@@ -940,9 +944,15 @@ static void refreshDisplay(uint32_t now) {
   gOled.setCursor(76, 0);
   if (app.batLowWarn && ((now / 500) & 1)) {
     gOled.print("!BAT ");
-  } else if (app.vBat > 0.1f) {
-    snprintf(b, sizeof(b), "%.1fV ", app.vBat);
-    gOled.print(b);
+  } else {
+#if !HAS_BATTERY_SENSE
+    gOled.print("USB ");
+#else
+    if (app.vBat > 0.1f) {
+      snprintf(b, sizeof(b), "%.1fV ", app.vBat);
+      gOled.print(b);
+    }
+#endif
   }
   gOled.print(gWifiUp ? "WiFi" : "----");
 
@@ -1039,7 +1049,11 @@ static void gasFeed(GasState& g, uint16_t raw, uint32_t now) {
     app.calGasPending = true; app.calGasAt = now + 3000; g.cal = false; g.level = GAS_OK;
   }
   g.wasFault = g.fault.state;
-  if (!g.cal || g.fault.state || railed) return;
+  if (!g.cal) {
+    if (g.f.primed) g.base = g.f.ema;              // Track ambient baseline during pre-heat so delta stays 0
+    return;
+  }
+  if (g.fault.state || railed) return;
   const float delta = g.f.ema - g.base;
   if (g.f.ema < g.base) g.base = g.f.ema;                              // Follow baseline downward drift (clean air settling)
   else if (delta < GAS_WARN_DELTA * 0.5f) g.base += 0.0005f * delta;   // Slow upward baseline compensation filter
@@ -1083,12 +1097,16 @@ static void pollSlowSensors(uint32_t now) {
 
 // ---------- Battery & Power Management ----------
 static uint16_t readBatteryMv() {
+#if !HAS_BATTERY_SENSE
+  return 4200; // Bench testing over USB cable (nominal 4.2V, prevents shutdown)
+#else
   const uint32_t raw = analogRead(PIN_BATTERY);
   // 12-bit ADC -> 0..4095 over ~3.3V (with 11dB attenuation)
   // Multiplied by divider factor (BAT_DIV_FACTOR = 2.0 for 100k/100k)
   const float vPin = (float)raw / 4095.0f * 3.3f;
   const float vBat = vPin * BAT_DIV_FACTOR;
   return (uint16_t)(vBat * 1000.0f);
+#endif
 }
 
 static void shutdownDevice() {
@@ -1131,6 +1149,14 @@ static void shutdownDevice() {
 }
 
 static void pollBattery(uint32_t now) {
+#if !HAS_BATTERY_SENSE
+  app.vBatMv = 4200;
+  app.vBat = 4.2f;
+  app.batLowWarn = false;
+  app.batShutdownCnt = 0;
+  (void)now;
+  return;
+#else
   static uint32_t lastBatMs = 0;
   if (now - lastBatMs < 1000) return;  // 1 Hz battery check
   lastBatMs = now;
@@ -1154,6 +1180,7 @@ static void pollBattery(uint32_t now) {
   } else {
     app.batShutdownCnt = 0;
   }
+#endif
 }
 
 // ---------- Zero-Dependency VL53L0X Time-of-Flight Driver ----------
