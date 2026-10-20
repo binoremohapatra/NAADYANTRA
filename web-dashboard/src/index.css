@@ -918,3 +918,64 @@ code, pre, .font-mono {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* =============================================
+   PRINT / PDF EXPORT STYLES (@media print)
+   ============================================= */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Hide navigation, header, overlays and non-report controls */
+  .hg-sidebar,
+  .hg-topbar,
+  .hg-demo-banner,
+  .hg-modal-backdrop,
+  .no-print {
+    display: none !important;
+  }
+
+  .hg-main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .hg-content {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Printable Report Container */
+  .hg-printable-report {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 20px !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-after: always;
+  }
+
+  .hg-printable-report table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .hg-printable-report th,
+  .hg-printable-report td {
+    border: 1px solid #D0D0D0 !important;
+    padding: 6px 8px !important;
+    color: #111111 !important;
+  }
+
+  .hg-printable-report .hg-state-badge {
+    border: 1px solid #666666 !important;
+    background: transparent !important;
+    color: #000000 !important;
+  }
+}

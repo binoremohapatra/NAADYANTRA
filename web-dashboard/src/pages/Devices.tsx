@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useDemo } from '../context/DemoContext';
+import { computeDeviceFreshness } from '../utils/telemetry';
 import type { Device, PaginatedResponse } from '../types';
 
 export default function Devices() {
@@ -12,7 +13,7 @@ export default function Devices() {
   const [error, setError] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [search, setSearch] = useState<string>('');
-  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [filter, setFilter] = useState<'all' | 'online' | 'stale' | 'offline'>('all');
 
   // Register Device Modal
   const [showRegisterModal, setShowRegisterModal] = useState<boolean>(false);
@@ -92,20 +93,18 @@ export default function Devices() {
 
   const filteredDevices =
     devices?.items.filter((device) => {
+      const freshness = computeDeviceFreshness(device.last_telemetry_at || device.last_seen_at, 60, 300);
       if (filter === 'all') return true;
-      if (filter === 'online') return device.is_online ?? false;
-      if (filter === 'offline') return !(device.is_online ?? false);
+      if (filter === 'online') return freshness.state === 'online';
+      if (filter === 'stale') return freshness.state === 'stale';
+      if (filter === 'offline') return freshness.state === 'offline';
       return true;
     }) || [];
 
   const formatLastSeen = (lastSeen: string | null) => {
     if (!lastSeen) return 'Never';
-    const diffMins = Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return new Date(lastSeen).toLocaleDateString();
+    const freshness = computeDeviceFreshness(lastSeen, 60, 300);
+    return freshness.label;
   };
 
   const totalPages = Math.max(1, Math.ceil((devices?.total ?? 0) / 50));
@@ -134,6 +133,32 @@ export default function Devices() {
         </div>
       </div>
 
+      {/* Same-Wi-Fi Fleet Discovery Architecture Callout */}
+      <div
+        className="hg-card"
+        style={{
+          marginBottom: 20,
+          padding: '14px 20px',
+          background: 'var(--color-pure-white)',
+          borderLeft: '4px solid var(--color-burnt-orange)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>📡</span>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-carbon)', margin: 0 }}>
+            Fleet Architecture &amp; Same-Wi-Fi Multi-Device Monitoring
+          </h3>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--color-warm-graphite)', marginTop: 6, lineHeight: 1.5 }}>
+          <strong>Browser Sandbox vs Central Fleet Registry:</strong> Because this web console runs inside a sandboxed browser runtime,
+          it cannot execute low-level ARP sweeps, raw socket broadcasts, or mDNS probes across a local Wi-Fi router (e.g. 192.168.x.x).
+          Instead, all NAADYANTRA ESP32-S3 rigs operating on the workshop or facility Wi-Fi register outbound to the central NAADYANTRA backend
+          (<span className="hg-code">POST /api/log</span>) using a persistent <span className="hg-code">device_id</span>.
+          The backend maintains heartbeat timestamps (<span className="hg-code">last_seen_at</span>), enabling this dashboard to monitor all
+          rigs on the facility network without requiring local subnet router bridges.
+        </p>
+      </div>
+
       {/* Filters Bar */}
       <div className="hg-card" style={{ marginBottom: 20, padding: '16px 20px' }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -153,7 +178,7 @@ export default function Devices() {
           <div>
             <label className="hg-label">Status Filter</label>
             <div className="hg-tabs">
-              {(['all', 'online', 'offline'] as const).map((f) => (
+              {(['all', 'online', 'stale', 'offline'] as const).map((f) => (
                 <button
                   key={f}
                   className={`hg-tab${filter === f ? ' active' : ''}`}
@@ -162,7 +187,9 @@ export default function Devices() {
                     setPage(1);
                   }}
                 >
-                  {f === 'all' ? `All (${devices?.total ?? 0})` : f.charAt(0).toUpperCase() + f.slice(1)}
+                  {f === 'all'
+                    ? `All (${devices?.total ?? 0})`
+                    : f.charAt(0).toUpperCase() + f.slice(1)}
                 </button>
               ))}
             </div>
@@ -234,14 +261,26 @@ export default function Devices() {
                       </div>
                     </td>
                     <td>
-                      {device.is_online ? (
-                        <span className="hg-badge hg-badge-ok">
-                          <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
-                          Online
-                        </span>
-                      ) : (
-                        <span className="hg-badge hg-badge-neutral">Offline</span>
-                      )}
+                      {(() => {
+                        const freshness = computeDeviceFreshness(device.last_telemetry_at || device.last_seen_at, 60, 300);
+                        if (freshness.state === 'online') {
+                          return (
+                            <span className="hg-badge hg-badge-ok">
+                              <span className="hg-dot hg-dot-ok hg-dot-pulse" style={{ width: 6, height: 6 }} />
+                              Online
+                            </span>
+                          );
+                        }
+                        if (freshness.state === 'stale') {
+                          return (
+                            <span className="hg-badge hg-badge-caution">
+                              <span className="hg-dot hg-dot-caution" style={{ width: 6, height: 6 }} />
+                              Stale
+                            </span>
+                          );
+                        }
+                        return <span className="hg-badge hg-badge-neutral">Offline</span>;
+                      })()}
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-warm-graphite)', whiteSpace: 'nowrap' }}>
                       {formatLastSeen(device.last_telemetry_at || device.last_seen_at)}
