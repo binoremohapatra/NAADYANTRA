@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useDemo } from '../context/DemoContext';
+import { PipeRig3DViewer } from '../components/PipeRig3DViewer';
 import type { Trainee, Device } from '../types';
 
 export default function TrainingWorkflow() {
@@ -518,6 +519,27 @@ export default function TrainingWorkflow() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* 3D Pipe Rig Digital Twin (Loaded from /scene.gltf) */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-carbon)' }}>
+                  Interactive 3D Pipeline Digital Twin (Acoustic Inspection):
+                </div>
+                <span className="hg-badge hg-badge-ok" style={{ fontSize: 11 }}>
+                  <span className="hg-dot hg-dot-ok hg-dot-pulse" />
+                  3D GLTF Pipe Active
+                </span>
+              </div>
+              <PipeRig3DViewer
+                activeJoint={currentJointIndex}
+                onSelectJoint={(j) => handleProbeJoint(j, j === 3)}
+                isLeaking={acousticElevations.length > 0 || currentJointIndex === 3}
+                leakIntensity={currentJointIndex === 3 ? 0.95 : 0.25}
+                height={300}
+                showControls={true}
+              />
             </div>
 
             {/* Interactive Rig Joint Simulator Buttons */}

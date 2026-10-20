@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useDemo } from '../context/DemoContext';
+import { PipeRig3DViewer } from '../components/PipeRig3DViewer';
 import type { Event } from '../types';
 
 export default function Diagnostics() {
   const { isDemoMode, demoData } = useDemo();
+
+  const [activeView, setActiveView] = useState<'events' | 'pipe3d'>('events');
+  const [inspectJoint, setInspectJoint] = useState<number>(3);
 
   const [events, setEvents] = useState<Event[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -248,7 +252,113 @@ export default function Diagnostics() {
         </div>
       </div>
 
-      {/* Filters Bar */}
+      {/* View Mode Switcher */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <button
+          className={`hg-btn ${activeView === 'events' ? 'hg-btn-primary' : 'hg-btn-secondary'}`}
+          onClick={() => setActiveView('events')}
+        >
+          📋 Observation Events Log ({totalCount})
+        </button>
+        <button
+          className={`hg-btn ${activeView === 'pipe3d' ? 'hg-btn-primary' : 'hg-btn-secondary'}`}
+          onClick={() => setActiveView('pipe3d')}
+        >
+          🔍 3D Pipeline Digital Twin (Real Rig Mesh)
+        </button>
+      </div>
+
+      {activeView === 'pipe3d' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 24 }}>
+          {/* Main 3D Canvas Rig */}
+          <div className="hg-card" style={{ padding: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <h3 style={{ fontSize: 15, margin: 0, color: 'var(--color-carbon)' }}>
+                  Acoustic Pipeline Rig · 3D Digital Twin
+                </h3>
+                <span style={{ fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+                  PBR rendering of industrial pipe assembly (`/scene.gltf`) with contact transducer simulation
+                </span>
+              </div>
+              <span className="hg-badge hg-badge-ok">
+                <span className="hg-dot hg-dot-ok hg-dot-pulse" />
+                Live Physics
+              </span>
+            </div>
+
+            <PipeRig3DViewer
+              activeJoint={inspectJoint}
+              onSelectJoint={(j) => setInspectJoint(j)}
+              isLeaking={inspectJoint === 3}
+              leakIntensity={inspectJoint === 3 ? 0.95 : 0.15}
+              height={440}
+              showControls={true}
+            />
+
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--color-warm-graphite)' }}>
+              <span>Orbit with left mouse drag · Zoom with mouse wheel · Click joints to inspect localized acoustic signatures</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>Active Target: Joint #{inspectJoint}</span>
+            </div>
+          </div>
+
+          {/* Joint Telemetry & Inspector Panel */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="hg-card" style={{ padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-warm-graphite)', marginBottom: 8 }}>
+                Transducer Diagnostics
+              </div>
+              <h4 style={{ fontSize: 16, margin: '0 0 12px', color: 'var(--color-carbon)' }}>
+                {inspectJoint === 1 && 'Joint #1: Flanged Spool Joint'}
+                {inspectJoint === 2 && 'Joint #2: 90° Elbow Coupling'}
+                {inspectJoint === 3 && 'Joint #3: Defect Micro-Fissure Coupling'}
+                {inspectJoint === 4 && 'Joint #4: Isolation Gate Valve'}
+              </h4>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                <div style={{ background: 'var(--color-ivory)', padding: 10, borderRadius: 6, border: '1px solid var(--color-warm-stone)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--color-warm-graphite)' }}>Acoustic RMS</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: inspectJoint === 3 ? 'var(--color-alert-danger)' : 'var(--color-carbon)' }}>
+                    {inspectJoint === 3 ? '1,840' : '420'} <span style={{ fontSize: 10, fontWeight: 400 }}>cts</span>
+                  </div>
+                </div>
+                <div style={{ background: 'var(--color-ivory)', padding: 10, borderRadius: 6, border: '1px solid var(--color-warm-stone)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--color-warm-graphite)' }}>Leak Probability</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: inspectJoint === 3 ? 'var(--color-alert-danger)' : 'var(--color-alert-ok)' }}>
+                    {inspectJoint === 3 ? '94.2%' : '4.8%'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-carbon)', marginBottom: 12 }}>
+                {inspectJoint === 3 ? (
+                  <div style={{ color: 'var(--color-dark-burnt-orange)', background: 'rgba(240, 120, 66, 0.08)', padding: 10, borderRadius: 6, border: '1px solid rgba(240, 120, 66, 0.25)' }}>
+                    🚨 <strong>Sustained Leak Acoustic Anomaly Detected!</strong><br />
+                    Ultrasonic pulse oscillations (32-48 kHz band) and droplet convection indicate active seal breach. Immediate torque re-check required.
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--color-warm-graphite)', background: 'var(--color-ivory)', padding: 10, borderRadius: 6, border: '1px solid var(--color-warm-stone)' }}>
+                    ✅ <strong>Baseline Nominal:</strong> Localized vibration within standard mechanical tolerance. No ultrasonic acoustic emission detected.
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="hg-btn hg-btn-secondary"
+                style={{ width: '100%', fontSize: 12 }}
+                onClick={() => {
+                  setSelectedModality('acoustic');
+                  setActiveView('events');
+                }}
+              >
+                View Historic Logs for Joint #{inspectJoint} →
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filters Bar */}
       <div className="hg-filters" style={{ background: 'var(--color-white)', padding: 14, borderRadius: 8, border: '1px solid var(--color-warm-stone)', marginBottom: 20 }}>
         <div style={{ minWidth: 160 }}>
           <label className="hg-label">Device Rig</label>
@@ -510,6 +620,8 @@ export default function Diagnostics() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Slide-out Event Detail & Explainable Feedback Drawer */}
       {inspectEvent && (

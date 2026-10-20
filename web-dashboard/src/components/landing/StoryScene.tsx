@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { BRAND_PREFIX, BRAND_ACCENT } from '../../constants/brand';
 
 interface StorySceneProps {
@@ -63,6 +65,16 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
   const animFrameRef = useRef<number | null>(null);
   const reducedMotionRef = useRef(false);
   const currentChapterIndexRef = useRef(-1);
+
+  // 3D Three.js Digital Twin Refs for user's /scene.gltf model
+  const threeContainerRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const pipeModelRef = useRef<THREE.Group | null>(null);
+  const acousticRingsRef = useRef<THREE.Mesh[]>([]);
+  const is3DActiveRef = useRef(false);
+  const [is3DLoaded, setIs3DLoaded] = useState(false);
 
   // Canvas size and DPR
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
@@ -160,25 +172,28 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
     const pt = Math.max(26, h * 0.075);
     const jx = w * (w > h ? 0.62 : 0.56);
 
-    ctx.fillStyle = '#17110f';
-    ctx.fillRect(w * 0.2, 0, 5 * k + 2, py);
-    ctx.fillRect(w * 0.86, 0, 5 * k + 2, py);
+    // Overhead pipe system: Only render 2D rectangle if 3D GLTF model hasn't loaded yet
+    if (!is3DActiveRef.current) {
+      ctx.fillStyle = '#17110f';
+      ctx.fillRect(w * 0.2, 0, 5 * k + 2, py);
+      ctx.fillRect(w * 0.86, 0, 5 * k + 2, py);
 
-    const pg = ctx.createLinearGradient(0, py, 0, py + pt);
-    pg.addColorStop(0, '#4d423b');
-    pg.addColorStop(0.5, '#2c2521');
-    pg.addColorStop(1, '#120e0c');
-    ctx.fillStyle = pg;
-    ctx.fillRect(-w, py, w * 3, pt);
+      const pg = ctx.createLinearGradient(0, py, 0, py + pt);
+      pg.addColorStop(0, '#4d423b');
+      pg.addColorStop(0.5, '#2c2521');
+      pg.addColorStop(1, '#120e0c');
+      ctx.fillStyle = pg;
+      ctx.fillRect(-w, py, w * 3, pt);
 
-    // Pipe Joint Collar
-    ctx.fillStyle = '#3b312c';
-    ctx.fillRect(jx - pt * 0.45, py - pt * 0.18, pt * 0.9, pt * 1.36);
-    ctx.fillStyle = '#14100e';
-    for (let b = 0; b < 3; b++) {
-      ctx.beginPath();
-      ctx.arc(jx, py + pt * (0.12 + b * 0.38), pt * 0.06, 0, 7);
-      ctx.fill();
+      // Pipe Joint Collar
+      ctx.fillStyle = '#3b312c';
+      ctx.fillRect(jx - pt * 0.45, py - pt * 0.18, pt * 0.9, pt * 1.36);
+      ctx.fillStyle = '#14100e';
+      for (let b = 0; b < 3; b++) {
+        ctx.beginPath();
+        ctx.arc(jx, py + pt * (0.12 + b * 0.38), pt * 0.06, 0, 7);
+        ctx.fill();
+      }
     }
 
     const oy = py + pt * 1.2;
@@ -467,6 +482,39 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
     [onChapterChange]
   );
 
+  // 3D WebGL Pipe render step (user's real /scene.gltf model)
+  const render3D = useCallback((t: number, p: number) => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current || !is3DActiveRef.current) return;
+
+    // Dynamic pipe rotation based on scroll chapter and time
+    if (pipeModelRef.current) {
+      const scrollNorm = p / 4.999;
+      pipeModelRef.current.rotation.y = -0.1 + scrollNorm * 0.22 + Math.sin(t * 0.25) * 0.02;
+      pipeModelRef.current.rotation.x = 0.06 - scrollNorm * 0.08 + Math.cos(t * 0.2) * 0.015;
+    }
+
+    // Ultrasonic acoustic pulse rings emit during detect and alert chapters
+    const isAcousticActive = p >= 1.6 && p <= 4.2;
+    acousticRingsRef.current.forEach((ring, idx) => {
+      if (isAcousticActive) {
+        ring.visible = true;
+        const phase = (t * 2.5 + idx * 0.6) % 2.0;
+        const s = 0.8 + phase * 0.8;
+        ring.scale.set(s, s, s);
+        const mat = ring.material as THREE.MeshBasicMaterial;
+        mat.opacity = Math.max(0, (1 - phase / 2.0) * (p >= 2.8 ? 0.9 : 0.65));
+        if (pipeModelRef.current) {
+          ring.rotation.x = pipeModelRef.current.rotation.x;
+          ring.rotation.y = pipeModelRef.current.rotation.y + Math.PI / 2;
+        }
+      } else {
+        ring.visible = false;
+      }
+    });
+
+    rendererRef.current.render(sceneRef.current, cameraRef.current);
+  }, []);
+
   // Smooth continuous animation loop
   useEffect(() => {
     reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -476,6 +524,111 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
     };
     const motionMql = window.matchMedia('(prefers-reduced-motion: reduce)');
     motionMql.addEventListener('change', onMotionChange);
+
+    // 3D Three.js Pipeline Setup
+    const threeContainer = threeContainerRef.current;
+    if (threeContainer && !rendererRef.current) {
+      const w = threeContainer.clientWidth || window.innerWidth;
+      const h = threeContainer.clientHeight || window.innerHeight;
+
+      const scene = new THREE.Scene();
+      sceneRef.current = scene;
+
+      const camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 100);
+      camera.position.set(0, 0.25, 4.8);
+      cameraRef.current = camera;
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.35;
+      rendererRef.current = renderer;
+      threeContainer.appendChild(renderer.domElement);
+
+      // Warm industrial lighting
+      const amb = new THREE.AmbientLight(0xffeedd, 0.9);
+      scene.add(amb);
+
+      const overheadLight = new THREE.DirectionalLight(0xfffaed, 2.8);
+      overheadLight.position.set(2, 6, 4);
+      scene.add(overheadLight);
+
+      const rimLight = new THREE.DirectionalLight(0xf07842, 3.2);
+      rimLight.position.set(-5, -2, -3);
+      scene.add(rimLight);
+
+      const spot = new THREE.PointLight(0xff9d5c, 1.8, 6);
+      spot.position.set(0.28, 0.52, 1.0);
+      scene.add(spot);
+
+      // Acoustic rings in 3D
+      const ringGroup = new THREE.Group();
+      scene.add(ringGroup);
+      acousticRingsRef.current = [];
+
+      for (let i = 0; i < 3; i++) {
+        const ringGeo = new THREE.TorusGeometry(0.28 + i * 0.1, 0.012, 16, 48);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xf07842,
+          transparent: true,
+          opacity: 0,
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.y = Math.PI / 2;
+        ringMesh.position.set(0.28, 0.52, 0);
+        ringGroup.add(ringMesh);
+        acousticRingsRef.current.push(ringMesh);
+      }
+
+      // Load user's real GLTF pipe model from /scene.gltf
+      const loader = new GLTFLoader();
+      loader.load(
+        '/scene.gltf',
+        (gltf) => {
+          const model = gltf.scene;
+          pipeModelRef.current = model;
+
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+
+          model.position.sub(center);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          if (maxDim > 0) {
+            const targetScale = 4.8 / maxDim;
+            model.scale.multiplyScalar(targetScale);
+          }
+
+          model.position.y += 0.52;
+          model.position.x += 0.15;
+          model.rotation.y = -0.1;
+
+          model.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              mesh.castShadow = true;
+              mesh.receiveShadow = true;
+              if (mesh.material) {
+                const mat = mesh.material as THREE.MeshStandardMaterial;
+                mat.roughness = Math.min(mat.roughness || 0.45, 0.55);
+                mat.metalness = Math.max(mat.metalness || 0.5, 0.45);
+              }
+            }
+          });
+
+          scene.add(model);
+          is3DActiveRef.current = true;
+          setIs3DLoaded(true);
+        },
+        undefined,
+        (err) => {
+          console.warn('Could not load 3D GLTF model, fallback to 2D:', err);
+          is3DActiveRef.current = false;
+        }
+      );
+    }
 
     // Initial sizing and scroll calculation
     updateSize();
@@ -494,6 +647,7 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
       }
 
       drawScene(isReduced ? 0 : ms / 1000, curRef.current);
+      render3D(isReduced ? 0 : ms / 1000, curRef.current);
       updateOverlays(curRef.current);
 
       if (!isReduced) {
@@ -511,8 +665,16 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
     const handleResize = () => {
       updateSize();
       calcScroll();
+      if (threeContainerRef.current && rendererRef.current && cameraRef.current) {
+        const w = threeContainerRef.current.clientWidth || window.innerWidth;
+        const h = threeContainerRef.current.clientHeight || window.innerHeight;
+        cameraRef.current.aspect = w / h;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(w, h);
+      }
       if (reducedMotionRef.current) {
         drawScene(0, curRef.current);
+        render3D(0, curRef.current);
         updateOverlays(curRef.current);
       }
     };
@@ -524,8 +686,16 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
       ro = new ResizeObserver(() => {
         updateSize();
         calcScroll();
+        if (threeContainerRef.current && rendererRef.current && cameraRef.current) {
+          const w = threeContainerRef.current.clientWidth || window.innerWidth;
+          const h = threeContainerRef.current.clientHeight || window.innerHeight;
+          cameraRef.current.aspect = w / h;
+          cameraRef.current.updateProjectionMatrix();
+          rendererRef.current.setSize(w, h);
+        }
         if (reducedMotionRef.current) {
           drawScene(0, curRef.current);
+          render3D(0, curRef.current);
           updateOverlays(curRef.current);
         }
       });
@@ -538,6 +708,7 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
       if (reducedMotionRef.current) {
         curRef.current = targetRef.current;
         drawScene(0, curRef.current);
+        render3D(0, curRef.current);
         updateOverlays(curRef.current);
       }
     };
@@ -549,8 +720,17 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
       ro?.disconnect();
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleScroll);
+      if (rendererRef.current && rendererRef.current.domElement && threeContainerRef.current) {
+        try {
+          threeContainerRef.current.removeChild(rendererRef.current.domElement);
+        } catch {
+          // ignore
+        }
+        rendererRef.current.dispose();
+        rendererRef.current = null;
+      }
     };
-  }, [calcScroll, drawScene, updateOverlays, updateSize]);
+  }, [calcScroll, drawScene, render3D, updateOverlays, updateSize]);
 
   // Jump to chapter on dot click
   const handleDotClick = (i: number) => {
@@ -568,12 +748,25 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
   return (
     <div className="story" id="story" ref={storyRef}>
       <div className="pin">
+        {/* 3D WebGL Pipe Digital Twin Container (/scene.gltf) */}
+        <div
+          ref={threeContainerRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        />
         <canvas
           id="scene"
           ref={canvasRef}
+          style={{ position: 'absolute', inset: 0, zIndex: 1 }}
           aria-label="Animated workshop scene that changes as you scroll: a slow leak, a probe detecting it, an alert and a recorded review"
         />
-        <div className="grain" />
+        <div className="grain" style={{ zIndex: 3 }} />
         <div className="lb t" />
         <div className="lb b" />
 
@@ -588,6 +781,23 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
             <span className="tc" id="tc" ref={tcRef}>
               Chapter I of V · Scroll to play
             </span>
+            {is3DLoaded && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'var(--f-m)',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  background: 'rgba(240, 120, 66, 0.2)',
+                  border: '1px solid #F07842',
+                  color: '#F07842',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                3D GLTF TWIN ACTIVE
+              </span>
+            )}
             <Link to="/dashboard" className="hud-cta">
               Trainer View →
             </Link>
@@ -733,12 +943,12 @@ export const StoryScene: React.FC<StorySceneProps> = ({ onChapterChange }) => {
         <div className="scope">
           <div className="w">
             <span>
-              <b>PROTOTYPE</b> water-pipe leak probe
+              <b>PROTOTYPE</b> water-pipe leak probe (3D GLTF Twin Active)
             </span>
             <span>
               <b>PROPOSED</b> gas · welding · electrical modules
             </span>
-            <span>Scene is an illustration, not live data</span>
+            <span>3D Interactive model rendered from /scene.gltf</span>
           </div>
         </div>
       </div>
